@@ -30,7 +30,11 @@ pythonほとんど使ってないのでChat GPTくんに助けを借りてGUIツ
 
 ### Download
 
-このソースを全部コピーしてpython叩くか、  
+このソースを全部コピーしてpython叩く(or .bat)か、  
 ```dist/ViRPE_lite.exe``` を動かすか。  
 
 ただしViRPE_liteは機能を削減した上にWindows Defenderに怒られながら産んだのであまりおすすめはしない。
+
+### Memo
+
+```./config.dat```の5行目は優秀な助手:Chat GPTのリンク
