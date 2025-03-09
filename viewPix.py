@@ -11,6 +11,8 @@ from fractions import Fraction
 import pyperclip
 
 class ImageViewer(QWidget):
+    """メインクラス"""
+
     name="画像ビューア"
     def __init__(self):
         super().__init__()
@@ -22,23 +24,27 @@ class ImageViewer(QWidget):
         #レイアウト
         self.layout=QVBoxLayout()
         self.layout.topButton=QHBoxLayout()
+        self.layout.addLayout(self.layout.topButton)
 
         #フォルダ選択ボタン
-        self.btn_open=QPushButton("フォルダを選択")
+        self.btn_open=QPushButton("フォルダ選択")
         self.btn_open.clicked.connect(self.load_images)
         self.layout.topButton.addWidget(self.btn_open)
 
         #exifリネームボタン
-        self.btn_open=QPushButton("exifリネーム")
-        self.btn_open.clicked.connect(self.rename_image_2)
-        self.layout.topButton.addWidget(self.btn_open)
+        self.btn_rename=QPushButton("リネーム(from textbox)")
+        self.btn_rename.clicked.connect(self.rename_image_3)
+        self.layout.topButton.addWidget(self.btn_rename)
+
+        #exifリネームボタン
+        self.btn_exif_rename=QPushButton("リネーム(add EXIF)")
+        self.btn_exif_rename.clicked.connect(self.rename_image_2)
+        self.layout.topButton.addWidget(self.btn_exif_rename)
 
         #exifクリップボードコピーボタン
-        self.btn_open=QPushButton("exif→clipCopy")
+        self.btn_open=QPushButton("copyToClip(EXIF)")
         self.btn_open.clicked.connect(self.exif_clip_2)
         self.layout.topButton.addWidget(self.btn_open)
-
-        self.layout.addLayout(self.layout.topButton)
 
         #入出力テキストボックス
         self.text_widget=QTextEdit("フォルダを選択してください")
@@ -75,7 +81,7 @@ class ImageViewer(QWidget):
 
         self.list_widget.clear()
         self.image_files =[]
-        self.text_widget.setText("画像を選択してください")
+        self.text_widget.setText("画像を選択してください。\n選択後、拡張子なしファイル名を表示・此処で変更可能です。")
 
         for file in os.listdir(folder):
             if file.lower().endswith(('.png','.jpg','jpeg','bmp','gif')):
@@ -87,7 +93,7 @@ class ImageViewer(QWidget):
         folder=os.path.dirname(self.image_path)
         self.list_widget.clear()
         self.image_files =[]
-        self.text_widget.setText("画像を選択してください")
+        self.text_widget.setText("画像を選択してください。\n選択後、拡張子なしファイル名を表示・此処で変更可能です。")
 
         for file in os.listdir(folder):
             if file.lower().endswith(('.png','.jpg','jpeg','bmp','gif')):
@@ -98,6 +104,22 @@ class ImageViewer(QWidget):
         if hasattr(self,"image_path") and self.image_path:
             rename_exif(self.image_path)
             self.reload_images()
+
+    def rename_image_3(self):
+        if hasattr(self,"image_path") and self.image_path:
+            """テキストボックスの文字列で画像ファイル名をリネームする関数"""
+
+            # 新しいファイル名を作成
+            new_name = self.text_widget.toPlainText().replace('\x00',"").replace('/','／').replace('\n',' ')
+            new_name += os.path.splitext(self.image_path)[1]  # 拡張子を追加
+
+            # ファイルをリネーム
+            new_path = os.path.join(os.path.dirname(self.image_path), new_name)
+            if "ダミーテキスト" not in os.path.basename(self.image_path):
+                os.rename(self.image_path, new_path)
+        self.reload_images()
+        return new_path
+        
 
     def exif_clip_2(self):
         """Exif情報を使って画像ファイル名をリネームする関数"""
@@ -132,8 +154,9 @@ class ImageViewer(QWidget):
 
                 # パスを保存
                 self.image_path = path
+                self.image_path_simple = os.path.splitext(os.path.basename(path))[0]
 
-                self.text_widget.setText(path)
+                self.text_widget.setText(self.image_path_simple)
 
                 break
 
@@ -154,8 +177,6 @@ class ImageViewer(QWidget):
                 # 画像を拡大（トリミングを意識した処理）
                 new_width = self.width() * self.zoom_factor
                 new_height = self.height() * self.zoom_factor
-
-                
 
                 #拡大画像をスケーリングして表示(クリック位置基準)
                 scaled_pixmap=pixmap.scaled(new_width,new_height,Qt.AspectRatioMode.KeepAspectRatio)
@@ -238,13 +259,16 @@ def rename_exif(file_path):
 
         # ファイルをリネーム
         new_path = os.path.join(os.path.dirname(file_path), new_name)
-        os.rename(file_path, new_path)
+        if "ISO" not in os.path.basename(file_path):
+            os.rename(file_path, new_path)
 
         return new_path
 
 
     return file_path  # Exif情報がなければ変更しない
 
+
+    return file_path  # Exif情報がなければ変更しない
 
 if __name__=="__main__":
 
