@@ -2,36 +2,58 @@ import sys
 import os
 import re
 from PIL import Image
-from PIL.ExifTags import TAGS
-from PyQt6.QtWidgets import QApplication, QLabel, QListWidget, QVBoxLayout, QWidget, QFileDialog, QPushButton
+import piexif
+from PyQt6.QtWidgets import QApplication, QLabel, QListWidget, QVBoxLayout, QWidget, QFileDialog, QPushButton,QGridLayout,QHBoxLayout,QTextEdit
 from PyQt6.QtGui import QPixmap, QMouseEvent
 from PyQt6.QtCore import Qt
 from datetime import datetime
+from fractions import Fraction
+import pyperclip
 
 class ImageViewer(QWidget):
+    name="画像ビューア"
     def __init__(self):
         super().__init__()
 
         #ウィンドウ設定
-        self.setWindowTitle("画像ビューア")
+        self.setWindowTitle(self.name)
         self.setGeometry(100,100,600,400)
 
         #レイアウト
         self.layout=QVBoxLayout()
+        self.layout.topButton=QHBoxLayout()
 
         #フォルダ選択ボタン
         self.btn_open=QPushButton("フォルダを選択")
         self.btn_open.clicked.connect(self.load_images)
-        self.layout.addWidget(self.btn_open)
+        self.layout.topButton.addWidget(self.btn_open)
+
+        #exifリネームボタン
+        self.btn_open=QPushButton("exifリネーム")
+        self.btn_open.clicked.connect(self.rename_image_2)
+        self.layout.topButton.addWidget(self.btn_open)
+
+        #exifクリップボードコピーボタン
+        self.btn_open=QPushButton("exif→clipCopy")
+        self.btn_open.clicked.connect(self.exif_clip_2)
+        self.layout.topButton.addWidget(self.btn_open)
+
+        self.layout.addLayout(self.layout.topButton)
+
+        #入出力テキストボックス
+        self.text_widget=QTextEdit("フォルダを選択してください")
+        self.text_widget.setMaximumHeight(45)
+        self.layout.addWidget(self.text_widget)
 
         #画像リスト
         self.list_widget=QListWidget()
+        self.list_widget.setMinimumHeight(80)
         self.list_widget.setMaximumHeight(200)
         self.list_widget.itemClicked.connect(self.display_image)
         self.layout.addWidget(self.list_widget)
 
         #画像表示ラベル
-        self.image_label=QLabel("画像を選択してください")
+        self.image_label=QLabel("画像表示領域")
         self.image_label.setMaximumSize(1980, 1080)
         self.image_label.setMinimumSize(600, 400)
         self.image_label.setScaledContents(False)
@@ -49,13 +71,49 @@ class ImageViewer(QWidget):
         if not folder:
             return
         
+        self.setWindowTitle(self.name+" "+folder)
+
         self.list_widget.clear()
         self.image_files =[]
+        self.text_widget.setText("画像を選択してください")
 
         for file in os.listdir(folder):
             if file.lower().endswith(('.png','.jpg','jpeg','bmp','gif')):
                 self.list_widget.addItem(file)
                 self.image_files.append(os.path.join(folder,file))
+
+    def reload_images(self):
+        """画像一覧をリロード"""
+        folder=os.path.dirname(self.image_path)
+        self.list_widget.clear()
+        self.image_files =[]
+        self.text_widget.setText("画像を選択してください")
+
+        for file in os.listdir(folder):
+            if file.lower().endswith(('.png','.jpg','jpeg','bmp','gif')):
+                self.list_widget.addItem(file)
+                self.image_files.append(os.path.join(folder,file))
+
+    def rename_image_2(self):
+        if hasattr(self,"image_path") and self.image_path:
+            rename_exif(self.image_path)
+            self.reload_images()
+
+    def exif_clip_2(self):
+        """Exif情報を使って画像ファイル名をリネームする関数"""
+        if hasattr(self,"image_path") and self.image_path:
+            exif_info = get_exif(self.image_path)
+            content=""
+
+            # 取得したExifデータをクリップボードにコピー
+            for key, value in exif_info.items():
+                content+=(f"{key}: {value}\n")
+
+            print(content)
+
+
+            pyperclip.copy(content)
+            self.text_widget.setText(content)
 
     def display_image(self,item):
         """選択した画像を表示"""
@@ -74,6 +132,8 @@ class ImageViewer(QWidget):
 
                 # パスを保存
                 self.image_path = path
+
+                self.text_widget.setText(path)
 
                 break
 
@@ -112,36 +172,77 @@ class ImageViewer(QWidget):
 
 def get_exif(file_path):
     """Exif情報を取得する関数"""
-    image = Image.open(file_path)
-    exif_data = image.getexif()
-    if exif_data is not None:
-        # Exif情報をキーとバリュー形式で取得
-        exif_info = {TAGS.get(tag, tag): value for tag, value in exif_data.items()}
-        return exif_info
-    return None
+    exif_data=piexif.load(file_path)
 
-def rename_image(file_path):
+    # Exif情報を辞書として登録
+    exif_dict ={}
+
+    # 各IFD（Exif情報のカテゴリ）を走査
+    for ifd_name in exif_data:
+        if isinstance(exif_data[ifd_name], dict):  # items() を使うため辞書かチェック
+            for tag, value in exif_data[ifd_name].items():
+                tag_name = piexif.TAGS[ifd_name].get(tag, {"name": tag})["name"]
+
+                # `bytes` 型ならデコード（例: メーカー名など）
+                if isinstance(value, bytes):
+                    try:
+                        value = value.decode("utf-8",errors="replace").replace('\x00','')
+                    except UnicodeDecodeError:
+                        value = value.hex()  # デコードできなければ16進数に変換
+
+                # `Rational`（分数表記）を処理
+                if isinstance(value, tuple) and len(value) == 2:
+                    value = Fraction(value[0], value[1])  # 分子/分母 → Fractionに変換
+
+                exif_dict[tag_name] = value
+
+    return exif_dict
+
+def rename_exif(file_path):
     """Exif情報を使って画像ファイル名をリネームする関数"""
     exif_info = get_exif(file_path)
 
-    if exif_info and 'DateTime' in exif_info:
-        # Exifから日付を取得
-        datetime_str = exif_info['DateTime']
-        
-         # **日付部分のみを抽出**（例: "2024:03:09 15:30:45+09:00" → "2024:03:09 15:30:45"）
-        match = re.search(r"\d{4}:\d{2}:\d{2} \d{2}:\d{2}:\d{2}", datetime_str)
+    # Exifの撮影日時を取得
+    datetime_str = exif_info['DateTimeOriginal']
+    match = re.search(r"\d{4}:\d{2}:\d{2} \d{2}:\d{2}:\d{2}", datetime_str)
+    if match:
 
-        # 日付を変換してファイル名に使用するフォーマットにする
-        if match:
-            clean_datetime_str = match.group()
-            date = datetime.strptime(clean_datetime_str, "%Y:%m:%d %H:%M:%S")
-            new_name = os.path.splitext(file_path)[0]+date.strftime("%Y%m%d_%H%M%S") + os.path.splitext(file_path)[1]
-            
-            # 新しいファイル名にリネーム
-            new_path = os.path.join(os.path.dirname(file_path), new_name)
-            os.rename(file_path, new_path)
-            
-            return new_path
+        # Exif情報を取得
+        shutter_speed = exif_info.get('ExposureTime')
+        f_number = exif_info.get('FNumber')
+        iso = exif_info.get('ISOSpeedRatings') or exif_info.get('PhotographicSensitivity')
+        focal_length = exif_info.get('FocalLength')
+
+        # シャッタースピードの整形
+        if isinstance(shutter_speed, Fraction):
+            shutter_speed_str = f" {shutter_speed.numerator}／{shutter_speed.denominator}秒"
+        elif isinstance(shutter_speed, (int, float)):
+            shutter_speed_str = f" {shutter_speed:.1f}秒"
+        else:
+            shutter_speed_str = ""
+
+        # F値の整形
+        f_number_str_o = f" F{float(f_number)}" if f_number else ""
+        f_number_str=f_number_str_o.replace("/","／")
+
+        # ISOの整形
+        iso_str = f" ISO{iso}" if iso else ""
+
+        # 焦点距離の整形
+        focal_length_str = f" {int(focal_length)}mm" if focal_length else ""
+
+        # 新しいファイル名を作成
+        new_name = os.path.splitext(file_path)[0]
+        new_name += f"{shutter_speed_str}{f_number_str}{iso_str}{focal_length_str}"
+        new_name += os.path.splitext(file_path)[1]  # 拡張子を追加
+
+        # ファイルをリネーム
+        new_path = os.path.join(os.path.dirname(file_path), new_name)
+        os.rename(file_path, new_path)
+
+        return new_path
+
+
     return file_path  # Exif情報がなければ変更しない
 
 
@@ -150,6 +251,5 @@ if __name__=="__main__":
     app= QApplication(sys.argv)
     viewer = ImageViewer()
     viewer.show()
-    rename_image("DSC_0076  中央総武緩行線 千葉 2036B E231系 ミツA508編成 阿佐ヶ谷 ホーム内 編成写真 Z50ii ‎1／125 秒 F／4 ISO-2800 120 mm.JPG")
     sys.exit(app.exec())
 
