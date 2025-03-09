@@ -9,6 +9,7 @@ from PyQt6.QtCore import Qt
 from datetime import datetime
 from fractions import Fraction
 import pyperclip
+import subprocess
 
 class ImageViewer(QWidget):
     """メインクラス"""
@@ -42,9 +43,19 @@ class ImageViewer(QWidget):
         self.layout.topButton.addWidget(self.btn_exif_rename)
 
         #exifクリップボードコピーボタン
-        self.btn_open=QPushButton("copyToClip(EXIF)")
-        self.btn_open.clicked.connect(self.exif_clip_2)
-        self.layout.topButton.addWidget(self.btn_open)
+        self.btn_exifCopy=QPushButton("copyToClip(EXIF)")
+        self.btn_exifCopy.clicked.connect(self.exif_clip_2)
+        self.layout.topButton.addWidget(self.btn_exifCopy)
+
+        #Excel起動ボタン
+        self.btn_excel=QPushButton("excel")
+        self.btn_excel.clicked.connect(self.openExcel)
+        self.layout.topButton.addWidget(self.btn_excel)
+
+        #外部フォルダアクセス用
+        self.btn_share=QPushButton("share folder")
+        self.btn_share.clicked.connect(self.share)
+        self.layout.topButton.addWidget(self.btn_share)
 
         #入出力テキストボックス
         self.text_widget=QTextEdit("フォルダを選択してください")
@@ -73,7 +84,11 @@ class ImageViewer(QWidget):
 
     def load_images(self):
         """フォルダを選択して画像一覧を表示"""
-        folder=QFileDialog.getExistingDirectory(self,"フォルダ選択")
+
+        f=open('config.dat','r')
+        line=f.readlines()
+
+        folder=QFileDialog.getExistingDirectory(self,"フォルダ選択",line[0])
         if not folder:
             return
         
@@ -190,6 +205,18 @@ class ImageViewer(QWidget):
                 cropped_pixmap=scaled_pixmap.copy(crop_rect)
 
                 self.image_label.setPixmap(cropped_pixmap)
+
+    def openExcel(self):
+        f=open('config.dat','r')
+        line=f.readlines()
+        subprocess.Popen(line[1])
+        return False
+    
+    def share(self):
+        f=open('config.dat','r')
+        line=f.readlines()
+        subprocess.Popen(''+line[2]+"")
+        return False
 
 def get_exif(file_path):
     """Exif情報を取得する関数"""
