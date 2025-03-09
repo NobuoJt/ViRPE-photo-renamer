@@ -4,6 +4,8 @@
 pythonほとんど使ってないのでChat GPTくんに助けを借りてGUIツールを作ってみた。  
 いちおう読みは「バープ」で。
 
+なんかEXEにコンパイルしようとしてもwindows defenderに阻まれて動かないのでpy上で動かすことにします。()
+
 ## Feature / Usage
 
 ![alt text](image.png)  
