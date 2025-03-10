@@ -37,4 +37,4 @@ pythonほとんど使ってないのでChat GPTくんに助けを借りてGUIツ
 
 ### Memo
 
-```./config.dat```の5行目は優秀な助手:Chat GPTのリンク
+```./HelloWorld.py```の5行目は優秀な助手:Chat GPTのリンク
