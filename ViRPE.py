@@ -4,7 +4,7 @@ import re
 from PIL import Image
 import piexif
 from PyQt6.QtWidgets import QApplication, QLabel, QListWidget, QVBoxLayout, QWidget, QFileDialog, QPushButton,QGridLayout,QHBoxLayout,QTextEdit
-from PyQt6.QtGui import QPixmap, QMouseEvent
+from PyQt6.QtGui import QPixmap, QMouseEvent,QKeyEvent
 from PyQt6.QtCore import Qt
 from datetime import datetime
 from fractions import Fraction
@@ -64,8 +64,9 @@ class ImageViewer(QWidget):
         self.layout.topButton.addWidget(self.btn_share)
 
         #入出力テキストボックス
-        self.text_widget=QTextEdit("フォルダを選択してください")
+        self.text_widget=ModifiedTextEdit("フォルダを選択してください")
         self.text_widget.setMaximumHeight(45)
+        self.text_widget.func=self.rename_image_3
         self.layout.addWidget(self.text_widget)
 
         #画像リスト
@@ -314,8 +315,14 @@ def rename_exif(file_path):
 
     return file_path  # Exif情報がなければ変更しない
 
-
-    return file_path  # Exif情報がなければ変更しない
+class ModifiedTextEdit(QTextEdit):
+    def func(self):return False
+    def keyPressEvent(self, event: QKeyEvent):
+        print(event.modifiers(),Qt.KeyboardModifier.ShiftModifier)
+        if event.key() == Qt.Key.Key_Return and not event.modifiers()==Qt.KeyboardModifier.ShiftModifier:
+            self.func()
+        else:
+            super().keyPressEvent(event)  # 通常の動作
 
 if __name__=="__main__":
 
