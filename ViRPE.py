@@ -192,8 +192,8 @@ class ImageViewer(QWidget):
         pixmap=QPixmap(self.image_path)
 
         # 画像を拡大（トリミングを意識した処理）
-        new_width = self.width() * self.zoom_factor if isZoom else 1
-        new_height = self.height() * self.zoom_factor if isZoom else 1
+        new_width = self.width() * (self.zoom_factor if isZoom else 1)
+        new_height = self.height() * (self.zoom_factor if isZoom else 1)
 
         #拡大画像をスケーリングして表示(クリック位置基準)
         scaled_pixmap=pixmap.scaled(new_width,new_height,Qt.AspectRatioMode.KeepAspectRatio)
