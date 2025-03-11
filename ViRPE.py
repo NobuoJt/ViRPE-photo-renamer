@@ -111,7 +111,7 @@ class ImageViewer(QWidget):
                 self.list_widget.addItem(file)
                 self.image_files.append(os.path.join(folder,file))
 
-    def reload_images(self):
+    def reload_images(self,item):
         """画像一覧をリロード"""
         if not hasattr(self,"image_path"):
             return
@@ -125,10 +125,20 @@ class ImageViewer(QWidget):
                 self.list_widget.addItem(file)
                 self.image_files.append(os.path.join(folder,file))
 
+        if item:
+            item=os.path.basename(item)
+            print(item)
+            for i in range(self.list_widget.count()):
+                print(self.list_widget.item(i).text(),item)
+                if self.list_widget.item(i).text()==item:
+                    self.list_widget.setCurrentItem(self.list_widget.item(i))
+                    break
+                
+
     def rename_image_2(self):
         if hasattr(self,"image_path") and self.image_path:
-            rename_exif(self.image_path)
-            self.reload_images()
+            new_path = rename_exif(self.image_path)
+            self.reload_images(new_path)
 
     def rename_image_3(self):
         if hasattr(self,"image_path") and self.image_path:
@@ -142,7 +152,7 @@ class ImageViewer(QWidget):
             new_path = os.path.join(os.path.dirname(self.image_path), new_name)
             if "ダミーテキスト" not in os.path.basename(self.image_path):
                 os.rename(self.image_path, new_path)
-            self.reload_images()
+            self.reload_images(new_path)
             return new_path
         return
 
