@@ -30,31 +30,37 @@ class ImageViewer(QWidget):
         #フォルダ選択ボタン
         self.btn_open=QPushButton("フォルダ選択")
         self.btn_open.clicked.connect(self.load_images)
+        self.btn_open.setDefault(True)
         self.layout.topButton.addWidget(self.btn_open)
 
         #exifリネームボタン
         self.btn_rename=QPushButton("リネーム(from textbox)")
         self.btn_rename.clicked.connect(self.rename_image_3)
+        self.btn_rename.setDefault(True)
         self.layout.topButton.addWidget(self.btn_rename)
 
         #exifリネームボタン
         self.btn_exif_rename=QPushButton("リネーム(add EXIF)")
         self.btn_exif_rename.clicked.connect(self.rename_image_2)
+        self.btn_exif_rename.setDefault(True)
         self.layout.topButton.addWidget(self.btn_exif_rename)
 
         #exifクリップボードコピーボタン
         self.btn_exifCopy=QPushButton("copyToClip(EXIF)")
         self.btn_exifCopy.clicked.connect(self.exif_clip_2)
+        self.btn_exifCopy.setDefault(True)
         self.layout.topButton.addWidget(self.btn_exifCopy)
 
         #Excel起動ボタン
         self.btn_excel=QPushButton("excel")
         self.btn_excel.clicked.connect(self.openExcel)
+        self.btn_excel.setDefault(True)
         self.layout.topButton.addWidget(self.btn_excel)
 
         #外部フォルダアクセス用
         self.btn_share=QPushButton("share folder")
         self.btn_share.clicked.connect(self.share)
+        self.btn_share.setDefault(True)
         self.layout.topButton.addWidget(self.btn_share)
 
         #入出力テキストボックス
@@ -67,6 +73,7 @@ class ImageViewer(QWidget):
         self.list_widget.setMinimumHeight(140)
         self.list_widget.setMaximumHeight(140)
         self.list_widget.itemClicked.connect(self.display_image)
+        self.list_widget.itemActivated.connect(self.display_image)
         self.layout.addWidget(self.list_widget)
 
         #画像表示ラベル
