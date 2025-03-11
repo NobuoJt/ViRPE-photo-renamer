@@ -149,14 +149,12 @@ class ImageViewer(QWidget):
         """Exif情報を使って画像ファイル名をリネームする関数"""
         if hasattr(self,"image_path") and self.image_path:
             exif_info = get_exif(self.image_path)
+            if not exif_info:return
             content=""
 
             # 取得したExifデータをクリップボードにコピー
             for key, value in exif_info.items():
-                content+=(f"{key}: {value}\n")
-
-            print(content)
-
+                content+=(f"{key}: {value}\n")\
 
             pyperclip.copy(content)
             self.text_widget.setText(content)
@@ -236,31 +234,37 @@ class ImageViewer(QWidget):
 
 def get_exif(file_path):
     """Exif情報を取得する関数"""
-    exif_data=piexif.load(file_path)
+    exif_data=None
+    try:
+        exif_data=piexif.load(file_path)
+    except Exception as e:
+        if(e):return
+    finally:
+        if not exif_data:return
 
-    # Exif情報を辞書として登録
-    exif_dict ={}
+        # Exif情報を辞書として登録
+        exif_dict ={}
 
-    # 各IFD（Exif情報のカテゴリ）を走査
-    for ifd_name in exif_data:
-        if isinstance(exif_data[ifd_name], dict):  # items() を使うため辞書かチェック
-            for tag, value in exif_data[ifd_name].items():
-                tag_name = piexif.TAGS[ifd_name].get(tag, {"name": tag})["name"]
+        # 各IFD（Exif情報のカテゴリ）を走査
+        for ifd_name in exif_data:
+            if isinstance(exif_data[ifd_name], dict):  # items() を使うため辞書かチェック
+                for tag, value in exif_data[ifd_name].items():
+                    tag_name = piexif.TAGS[ifd_name].get(tag, {"name": tag})["name"]
 
-                # `bytes` 型ならデコード（例: メーカー名など）
-                if isinstance(value, bytes):
-                    try:
-                        value = value.decode("utf-8",errors="replace").replace('\x00','')
-                    except UnicodeDecodeError:
-                        value = value.hex()  # デコードできなければ16進数に変換
+                    # `bytes` 型ならデコード（例: メーカー名など）
+                    if isinstance(value, bytes):
+                        try:
+                            value = value.decode("utf-8",errors="replace").replace('\x00','')
+                        except UnicodeDecodeError:
+                            value = value.hex()  # デコードできなければ16進数に変換
 
-                # `Rational`（分数表記）を処理
-                if isinstance(value, tuple) and len(value) == 2:
-                    value = Fraction(value[0], value[1])  # 分子/分母 → Fractionに変換
+                    # `Rational`（分数表記）を処理
+                    if isinstance(value, tuple) and len(value) == 2:
+                        value = Fraction(value[0], value[1])  # 分子/分母 → Fractionに変換
 
-                exif_dict[tag_name] = value
+                    exif_dict[tag_name] = value
 
-    return exif_dict
+        return exif_dict
 
 def rename_exif(file_path):
     """Exif情報を使って画像ファイル名をリネームする関数"""
