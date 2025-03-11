@@ -186,25 +186,27 @@ class ImageViewer(QWidget):
             click_y_on_label = ((click_pos.y()-self.image_label.y())/self.image_label.height())  # y座標
 
             if 0 < click_x_on_label < 1 and 0 < click_y_on_label < 1: # label内の左クリック
+                self.zoom_pix(click_x_on_label,click_y_on_label)
 
-                pixmap=QPixmap(self.image_path)
+    def zoom_pix(self,click_x_on_label,click_y_on_label,isZoom:bool):
+        pixmap=QPixmap(self.image_path)
 
-                # 画像を拡大（トリミングを意識した処理）
-                new_width = self.width() * self.zoom_factor
-                new_height = self.height() * self.zoom_factor
+        # 画像を拡大（トリミングを意識した処理）
+        new_width = self.width() * self.zoom_factor if isZoom else 1
+        new_height = self.height() * self.zoom_factor if isZoom else 1
 
-                #拡大画像をスケーリングして表示(クリック位置基準)
-                scaled_pixmap=pixmap.scaled(new_width,new_height,Qt.AspectRatioMode.KeepAspectRatio)
+        #拡大画像をスケーリングして表示(クリック位置基準)
+        scaled_pixmap=pixmap.scaled(new_width,new_height,Qt.AspectRatioMode.KeepAspectRatio)
 
-                #トリミング
-                crop_center_x=max(0,round(click_x_on_label*scaled_pixmap.width()))
-                crop_center_y=(round((click_y_on_label-0.5)*scaled_pixmap.height()*1.5))
-                
-                crop_rect=scaled_pixmap.rect().adjusted(crop_center_x - self.width() // 2, crop_center_y - self.height() // 2,
-                                                        crop_center_x + self.width() // 2, crop_center_y + self.height() // 2)
-                cropped_pixmap=scaled_pixmap.copy(crop_rect)
+        #トリミング
+        crop_center_x=max(0,round(click_x_on_label*scaled_pixmap.width())) if isZoom else 0
+        crop_center_y=(round((click_y_on_label-0.5)*scaled_pixmap.height()*1.5)) if isZoom else 0
+        
+        crop_rect=scaled_pixmap.rect().adjusted(crop_center_x - self.width() // 2, crop_center_y - self.height() // 2,
+                                                crop_center_x + self.width() // 2, crop_center_y + self.height() // 2)
+        cropped_pixmap=scaled_pixmap.copy(crop_rect)
 
-                self.image_label.setPixmap(cropped_pixmap)
+        self.image_label.setPixmap(cropped_pixmap)
 
     def openExcel(self):
         f=open('config.dat','r')
