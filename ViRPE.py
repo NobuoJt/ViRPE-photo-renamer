@@ -90,6 +90,8 @@ class ImageViewer(QWidget):
         #レイアウトを適用
         self.setLayout(self.layout)
 
+    text_require_sel_pix="画像を選択してください。\n選択後、拡張子なしファイル名を表示・此処で変更可能です。"
+
     def load_images(self):
         """フォルダを選択して画像一覧を表示"""
 
@@ -104,7 +106,7 @@ class ImageViewer(QWidget):
 
         self.list_widget.clear()
         self.image_files =[]
-        self.text_widget.setText("画像を選択してください。\n選択後、拡張子なしファイル名を表示・此処で変更可能です。")
+        self.text_widget.setText(self.text_require_sel_pix)
 
         for file in os.listdir(folder):
             if file.lower().endswith(('.png','.jpg','jpeg','bmp','gif')):
@@ -118,7 +120,7 @@ class ImageViewer(QWidget):
         folder=os.path.dirname(self.image_path)
         self.list_widget.clear()
         self.image_files =[]
-        self.text_widget.setText("画像を選択してください。\n選択後、拡張子なしファイル名を表示・此処で変更可能です。")
+        self.text_widget.setText(self.text_require_sel_pix)
 
         for file in os.listdir(folder):
             if file.lower().endswith(('.png','.jpg','jpeg','bmp','gif')):
@@ -127,9 +129,7 @@ class ImageViewer(QWidget):
 
         if item:
             item=os.path.basename(item)
-            print(item)
             for i in range(self.list_widget.count()):
-                print(self.list_widget.item(i).text(),item)
                 if self.list_widget.item(i).text()==item:
                     self.list_widget.setCurrentItem(self.list_widget.item(i))
                     break
@@ -141,8 +141,9 @@ class ImageViewer(QWidget):
             self.reload_images(new_path)
 
     def rename_image_3(self):
+        """テキストボックスの文字列で画像ファイル名をリネームする関数"""
         if hasattr(self,"image_path") and self.image_path:
-            """テキストボックスの文字列で画像ファイル名をリネームする関数"""
+            if self.text_require_sel_pix == self.text_widget.toPlainText():return False
 
             # 新しいファイル名を作成
             new_name = self.text_widget.toPlainText().replace('\x00',"").replace('/','／').replace('\n',' ')
@@ -150,7 +151,7 @@ class ImageViewer(QWidget):
 
             # ファイルをリネーム
             new_path = os.path.join(os.path.dirname(self.image_path), new_name)
-            if "ダミーテキスト" not in os.path.basename(self.image_path):
+            if self.text_require_sel_pix not in new_path:
                 os.rename(self.image_path, new_path)
             self.reload_images(new_path)
             return new_path
@@ -328,7 +329,6 @@ def rename_exif(file_path):
 class ModifiedTextEdit(QTextEdit):
     def func(self):return False
     def keyPressEvent(self, event: QKeyEvent):
-        print(event.modifiers(),Qt.KeyboardModifier.ShiftModifier)
         if event.key() == Qt.Key.Key_Return and not event.modifiers()==Qt.KeyboardModifier.ShiftModifier:
             self.func()
         else:
