@@ -175,7 +175,7 @@ class ImageViewer(QWidget):
 
                 break
 
-    def mousePressEvent(self, event):
+    def mousePressEvent(self, event:QMouseEvent):
         """画像をクリックした位置を基準に拡大表示"""
         if hasattr(self,"image_path") and self.image_path:
 
@@ -185,8 +185,13 @@ class ImageViewer(QWidget):
             click_x_on_label = ((click_pos.x()-self.image_label.x())/self.image_label.width())  # x座標
             click_y_on_label = ((click_pos.y()-self.image_label.y())/self.image_label.height())  # y座標
 
-            if 0 < click_x_on_label < 1 and 0 < click_y_on_label < 1: # label内の左クリック
-                self.zoom_pix(click_x_on_label,click_y_on_label)
+            if 0 < click_x_on_label < 1 and 0 < click_y_on_label < 1: # label内クリック
+                if event.button() == Qt.MouseButton.LeftButton: #左クリック
+                    self.zoom_pix(click_x_on_label,click_y_on_label,True)
+                
+            if 0 < click_x_on_label < 1 and 0 < click_y_on_label < 1: # label内クリック
+                if event.button() == Qt.MouseButton.RightButton: #右クリック
+                    self.zoom_pix(click_x_on_label,click_y_on_label,False)
 
     def zoom_pix(self,click_x_on_label,click_y_on_label,isZoom:bool):
         pixmap=QPixmap(self.image_path)
