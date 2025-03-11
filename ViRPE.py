@@ -64,8 +64,8 @@ class ImageViewer(QWidget):
 
         #画像リスト
         self.list_widget=QListWidget()
-        self.list_widget.setMinimumHeight(80)
-        self.list_widget.setMaximumHeight(200)
+        self.list_widget.setMinimumHeight(140)
+        self.list_widget.setMaximumHeight(140)
         self.list_widget.itemClicked.connect(self.display_image)
         self.layout.addWidget(self.list_widget)
 
