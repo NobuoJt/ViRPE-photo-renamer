@@ -112,6 +112,8 @@ class ImageViewer(QWidget):
 
     def reload_images(self):
         """画像一覧をリロード"""
+        if not hasattr(self,"image_path"):
+            return
         folder=os.path.dirname(self.image_path)
         self.list_widget.clear()
         self.image_files =[]
@@ -139,9 +141,9 @@ class ImageViewer(QWidget):
             new_path = os.path.join(os.path.dirname(self.image_path), new_name)
             if "ダミーテキスト" not in os.path.basename(self.image_path):
                 os.rename(self.image_path, new_path)
-        self.reload_images()
-        return new_path
-        
+            self.reload_images()
+            return new_path
+        return
 
     def exif_clip_2(self):
         """Exif情報を使って画像ファイル名をリネームする関数"""
