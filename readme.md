@@ -30,10 +30,8 @@ pythonほとんど使ってないのでChat GPTくんに助けを借りてGUIツ
 
 ### Download
 
-このソースを全部コピーしてpython叩く(or .bat)か、  
-```dist/ViRPE_lite.exe``` を動かすか。  
-
-ただしViRPE_liteは機能を削減した上にWindows Defenderに怒られながら産んだのであまりおすすめはしない。
+[ここ](https://github.com/NobuoJt/ViRPE-photo-renamer/releases/tag/v0.9.0-alpha)からwindowsでの実行ファイルをダウンロード可能。  
+Windows Defenderに怒られながら産んだのであまりおすすめはしない。
 
 ### Memo
 
