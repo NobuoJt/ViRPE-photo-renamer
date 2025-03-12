@@ -10,7 +10,7 @@ from datetime import datetime
 from fractions import Fraction
 import pyperclip
 import subprocess
-version="v0.9.2-alpha"
+version="v0.9.3-alpha"
 
 class ImageViewer(QWidget):
     """メインクラス"""
@@ -121,7 +121,6 @@ class ImageViewer(QWidget):
         folder=os.path.dirname(self.image_path)
         self.list_widget.clear()
         self.image_files =[]
-        self.text_widget.setText(self.text_require_sel_pix)
 
         for file in os.listdir(folder):
             if file.lower().endswith(('.png','.jpg','jpeg','bmp','gif')):
@@ -135,6 +134,7 @@ class ImageViewer(QWidget):
                     self.list_widget.setCurrentItem(self.list_widget.item(i))
                     break
                 
+        self.text_widget.setText(os.path.splitext(item)[0])
 
     def rename_image_2(self):
         if hasattr(self,"image_path") and self.image_path:
