@@ -10,11 +10,12 @@ from datetime import datetime
 from fractions import Fraction
 import pyperclip
 import subprocess
+version="v0.9.1-alpha"
 
 class ImageViewer(QWidget):
     """メインクラス"""
 
-    name="画像ビューア"
+    name="ViPRE "+version
     def __init__(self):
         super().__init__()
 
