@@ -4,8 +4,6 @@
 pythonほとんど使ってないのでChat GPTくんに助けを借りてGUIツールを作ってみた。  
 いちおう読みは「バープ」で。
 
-なんかEXEにコンパイルしようとしてもwindows defenderに阻まれて動かないのでpy上で動かすことにします。()
-
 ## Feature / Usage
 
 ![alt text](image.png)  
@@ -24,13 +22,14 @@ pythonほとんど使ってないのでChat GPTくんに助けを借りてGUIツ
 
 |コンテンツ||
 |-|-|
+|タイトルバー|バージョン　📂[フォルダパス]　⌚EXIF撮影日時|
 |上部テキストボックス|操作指示、拡張子なしファイル名、exif情報を表示。ファイル名変更も可能。|
 |画像ファイルリスト|画像の選択|
 |画像表示エリア|マウス左クリックで全体の2倍で表示。右クリックで1倍。|
 
 ### Download
 
-[ここ](https://github.com/NobuoJt/ViRPE-photo-renamer/releases/tag/v0.9.0-alpha)からwindowsでの実行ファイルをダウンロード可能。  
+[ここ](https://github.com/NobuoJt/ViRPE-photo-renamer/releases/tag/v1.0.0-beta)からwindowsでの実行ファイルをダウンロード可能。  
 Windows Defenderに怒られながら産んだのであまりおすすめはしない。
 
 ### Memo

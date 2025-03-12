@@ -3,6 +3,6 @@
 *.jpeg
 *.JPEG
 build/*
-config.dat
+/config.dat
 share.lnk
 HelloWorld.py
