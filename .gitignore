@@ -2,6 +2,7 @@
 *.jpg
 *.jpeg
 *.JPEG
+build/*
 config.dat
 share.lnk
 HelloWorld.py
