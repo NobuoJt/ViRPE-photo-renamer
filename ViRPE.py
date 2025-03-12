@@ -10,7 +10,7 @@ from datetime import datetime
 from fractions import Fraction
 import pyperclip
 import subprocess
-version="v0.9.6-alpha"
+version="v0.9.7-alpha"
 
 class ImageViewer(QWidget):
     """メインクラス"""
@@ -103,7 +103,7 @@ class ImageViewer(QWidget):
         if not folder:
             return
         
-        self.setWindowTitle(self.name+" ["+folder+"]")
+        self.setWindowTitle(self.name+" 📂["+folder+"]")
 
         self.list_widget.clear()
         self.image_files =[]
@@ -196,7 +196,7 @@ class ImageViewer(QWidget):
                 exif=get_exif(path)
                 if exif is None: break
                 self.text_widget.setText(self.image_path_simple)
-                self.setWindowTitle(self.name+" ["+os.path.basename(os.path.splitext(self.image_path)[0])+"] ⌚"
+                self.setWindowTitle(self.name+" 📂["+os.path.dirname(self.image_path)+"] ⌚"
                                     +exif["DateTimeOriginal"] if "DateTimeOriginal" in exif else "no DateTime")
 
 
