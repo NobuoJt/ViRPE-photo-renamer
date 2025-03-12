@@ -139,6 +139,7 @@ class ImageViewer(QWidget):
     def rename_image_2(self):
         if hasattr(self,"image_path") and self.image_path:
             new_path = rename_exif(self.image_path)
+            self.image_path=new_path
             self.reload_images(new_path)
 
     def rename_image_3(self):
@@ -154,6 +155,7 @@ class ImageViewer(QWidget):
             new_path = os.path.join(os.path.dirname(self.image_path), new_name)
             if self.text_require_sel_pix not in new_path:
                 os.rename(self.image_path, new_path)
+            self.image_path=new_path
             self.reload_images(new_path)
             return new_path
         return
