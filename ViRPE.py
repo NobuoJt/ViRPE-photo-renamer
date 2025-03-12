@@ -10,7 +10,7 @@ from datetime import datetime
 from fractions import Fraction
 import pyperclip
 import subprocess
-version="v0.9.5-alpha"
+version="v0.9.6-alpha"
 
 class ImageViewer(QWidget):
     """メインクラス"""
@@ -194,6 +194,7 @@ class ImageViewer(QWidget):
                 self.image_path_simple = os.path.splitext(os.path.basename(path))[0]
 
                 exif=get_exif(path)
+                if exif is None: break
                 self.text_widget.setText(self.image_path_simple)
                 self.setWindowTitle(self.name+" ["+os.path.basename(os.path.splitext(self.image_path)[0])+"] ⌚"
                                     +exif["DateTimeOriginal"] if "DateTimeOriginal" in exif else "no DateTime")
