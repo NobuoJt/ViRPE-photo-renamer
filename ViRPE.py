@@ -10,7 +10,7 @@ from datetime import datetime
 from fractions import Fraction
 import pyperclip
 import subprocess
-version="v0.9.3-alpha"
+version="v0.9.5-alpha"
 
 class ImageViewer(QWidget):
     """メインクラス"""
@@ -328,6 +328,8 @@ def rename_exif(file_path):
         new_path = os.path.join(os.path.dirname(file_path), new_name)
         if "ISO" not in os.path.basename(file_path):
             os.rename(file_path, new_path)
+        else:
+            return file_path
 
         return new_path
 
