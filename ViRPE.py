@@ -10,7 +10,7 @@ from datetime import datetime
 from fractions import Fraction
 import pyperclip
 import subprocess
-version="v1.0.1_2"
+version="v1.0.1_3"
 
 class ImageViewer(QWidget):
     """メインクラス"""
@@ -67,7 +67,8 @@ class ImageViewer(QWidget):
         #入出力テキストボックス
         self.text_widget=ModifiedTextEdit("フォルダを選択してください")
         self.text_widget.setMaximumHeight(45)
-        self.text_widget.func=self.rename_image_3
+        self.text_widget.func_rename=self.rename_image_3
+        self.text_widget.func_rename_exif=self.rename_image_2
         self.layout.addWidget(self.text_widget)
 
         #画像リスト
@@ -358,18 +359,14 @@ def replace_invalid_chars(filename: str) -> str:
     
     return filename
 
-# 使用例
-if __name__ == "__main__":
-    original = r"sample:file*name?.txt"
-    replaced = replace_invalid_chars(original)
-    print("元の文字列:", original)
-    print("置換後の文字列:", replaced)
-
 class ModifiedTextEdit(QTextEdit):
-    def func(self):return False
+    def func_rename(self):return False
+    def func_rename_exif(self):return False
     def keyPressEvent(self, event: QKeyEvent):
         if event.key() == Qt.Key.Key_Return and not event.modifiers()==Qt.KeyboardModifier.ShiftModifier:
-            self.func()
+            self.func_rename()
+        elif event.key() == Qt.Key.Key_Return and event.modifiers()==Qt.KeyboardModifier.ShiftModifier :
+            self.func_rename_exif()
         else:
             super().keyPressEvent(event)  # 通常の動作
 
