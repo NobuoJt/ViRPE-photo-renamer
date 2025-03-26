@@ -29,7 +29,7 @@ pythonほとんど使ってないのでChat GPTくんに助けを借りてGUIツ
 
 ### Download
 
-[ここ](https://github.com/NobuoJt/ViRPE-photo-renamer/releases/tag/v1.0.0-beta)からwindowsでの実行ファイルをダウンロード可能。  
+[ここ](https://github.com/NobuoJt/ViRPE-photo-renamer/releases/tag/v1.0.2)からwindowsでの実行ファイルをダウンロード可能。  
 Windows Defenderに怒られながら産んだのであまりおすすめはしない。
 
 ### Memo
