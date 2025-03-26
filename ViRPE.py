@@ -10,7 +10,7 @@ from datetime import datetime
 from fractions import Fraction
 import pyperclip
 import subprocess
-version="v1.0.1_4"
+version="v1.0.2"
 
 class ImageViewer(QWidget):
     """メインクラス"""
