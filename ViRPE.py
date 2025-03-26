@@ -10,7 +10,7 @@ from datetime import datetime
 from fractions import Fraction
 import pyperclip
 import subprocess
-version="v1.0.1_3"
+version="v1.0.1_4"
 
 class ImageViewer(QWidget):
     """メインクラス"""
@@ -323,11 +323,11 @@ def rename_exif(file_path):
 
         # 新しいファイル名を作成
         new_name = os.path.splitext(file_path)[0]
-        new_name += f"{shutter_speed_str}{f_number_str}{iso_str}{focal_length_str}"
+        new_name += replace_invalid_chars(f"{shutter_speed_str}{f_number_str}{iso_str}{focal_length_str}")
         new_name += os.path.splitext(file_path)[1]  # 拡張子を追加
 
         # ファイルをリネーム
-        new_path = os.path.join(os.path.dirname(file_path), replace_invalid_chars(new_name))
+        new_path = os.path.join(os.path.dirname(file_path), new_name)
         if "ISO" not in os.path.basename(file_path):
             os.rename(file_path, new_path)
         else:
