@@ -10,7 +10,7 @@ from datetime import datetime
 from fractions import Fraction
 import pyperclip
 import subprocess
-version="v1.0.0-beta"
+version="v1.0.1_2"
 
 class ImageViewer(QWidget):
     """メインクラス"""
@@ -152,8 +152,8 @@ class ImageViewer(QWidget):
             new_name += os.path.splitext(self.image_path)[1]  # 拡張子を追加
 
             # ファイルをリネーム
-            new_path = os.path.join(os.path.dirname(self.image_path), new_name)
-            if self.text_require_sel_pix not in new_path:
+            if self.text_require_sel_pix not in new_name:
+                new_path = os.path.join(os.path.dirname(self.image_path), replace_invalid_chars(new_name))        
                 os.rename(self.image_path, new_path)
             self.image_path=new_path
             self.reload_images(new_path)
@@ -326,7 +326,7 @@ def rename_exif(file_path):
         new_name += os.path.splitext(file_path)[1]  # 拡張子を追加
 
         # ファイルをリネーム
-        new_path = os.path.join(os.path.dirname(file_path), new_name)
+        new_path = os.path.join(os.path.dirname(file_path), replace_invalid_chars(new_name))
         if "ISO" not in os.path.basename(file_path):
             os.rename(file_path, new_path)
         else:
@@ -336,6 +336,34 @@ def rename_exif(file_path):
 
 
     return file_path  # Exif情報がなければ変更しない
+
+
+def replace_invalid_chars(filename: str) -> str:
+    # 置換用のマッピング（半角→全角）
+    replacement_table = {
+        '\\': '￥',   # バックスラッシュ → 全角円記号
+        '/':  '／',   # スラッシュ → 全角スラッシュ
+        ':':  '：',   # コロン → 全角コロン
+        '*':  '＊',   # アスタリスク → 全角アスタリスク
+        '?':  '？',   # クエスチョンマーク → 全角クエスチョンマーク
+        '"':  '”',   # ダブルクォート → 全角ダブルクォート（例）
+        '<':  '＜',   # 小なり → 全角小なり
+        '>':  '＞',   # 大なり → 全角大なり
+        '|':  '｜'    # パイプ → 全角パイプ
+    }
+    
+    # マッピングに従って文字を置換
+    for char, replacement in replacement_table.items():
+        filename = filename.replace(char, replacement)
+    
+    return filename
+
+# 使用例
+if __name__ == "__main__":
+    original = r"sample:file*name?.txt"
+    replaced = replace_invalid_chars(original)
+    print("元の文字列:", original)
+    print("置換後の文字列:", replaced)
 
 class ModifiedTextEdit(QTextEdit):
     def func(self):return False
