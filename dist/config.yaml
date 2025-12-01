@@ -1,4 +1,6 @@
 # 設定 (ViRPE Photo Renamer)
 default_folder : C:\
+custom_command1_name : custom2
 custom_command1 : cmd /c "echo set your custom command in  config.dat && pause"
+custom_command2_name : custom2
 custom_command2 : explorer "C:\"

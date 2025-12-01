@@ -11,7 +11,7 @@ from datetime import datetime
 from fractions import Fraction
 import pyperclip
 import subprocess
-version="v1.0.3"
+version="v1.0.4"
 
 class ImageViewer(QWidget):
     """メインクラス"""
@@ -19,6 +19,10 @@ class ImageViewer(QWidget):
     name="ViPRE "+version
     def __init__(self):
         super().__init__()
+
+        config = load_config()
+        self.custom_command1_name = config.get('custom_command1_name', 'custom1')
+        self.custom_command2_name = config.get('custom_command2_name', 'custom2')
 
         #ウィンドウ設定
         self.setWindowTitle(self.name)
@@ -53,17 +57,17 @@ class ImageViewer(QWidget):
         self.btn_exifCopy.setDefault(True)
         self.layout.topButton.addWidget(self.btn_exifCopy)
 
-        #Excel起動ボタン
-        self.btn_excel=QPushButton("excel")
-        self.btn_excel.clicked.connect(self.openExcel)
-        self.btn_excel.setDefault(True)
-        self.layout.topButton.addWidget(self.btn_excel)
+        #custom_command1起動ボタン
+        self.btn_custom_command1=QPushButton(self.custom_command1_name)
+        self.btn_custom_command1.clicked.connect(self.custom_command1)
+        self.btn_custom_command1.setDefault(True)
+        self.layout.topButton.addWidget(self.btn_custom_command1)
 
         #外部フォルダアクセス用
-        self.btn_share=QPushButton("share folder")
-        self.btn_share.clicked.connect(self.share)
-        self.btn_share.setDefault(True)
-        self.layout.topButton.addWidget(self.btn_share)
+        self.btn_custom_command2=QPushButton(self.custom_command2_name)
+        self.btn_custom_command2.clicked.connect(self.custom_command2)
+        self.btn_custom_command2.setDefault(True)
+        self.layout.topButton.addWidget(self.btn_custom_command2)
 
         #入出力テキストボックス
         self.text_widget=ModifiedTextEdit("フォルダを選択してください")
@@ -242,14 +246,14 @@ class ImageViewer(QWidget):
 
         self.image_label.setPixmap(cropped_pixmap)
 
-    def openExcel(self):
+    def custom_command1(self):
         config = load_config()
         cmd = config.get('custom_command1')
         if cmd:
             subprocess.Popen(cmd)
         return False
     
-    def share(self):
+    def custom_command2(self):
         config = load_config()
         cmd = config.get('custom_command2')
         if cmd:
