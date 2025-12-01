@@ -3,6 +3,7 @@ import os
 import re
 from PIL import Image
 import piexif
+import yaml
 from PyQt6.QtWidgets import QApplication, QLabel, QListWidget, QVBoxLayout, QWidget, QFileDialog, QPushButton,QGridLayout,QHBoxLayout,QTextEdit
 from PyQt6.QtGui import QPixmap, QMouseEvent,QKeyEvent
 from PyQt6.QtCore import Qt
@@ -10,7 +11,7 @@ from datetime import datetime
 from fractions import Fraction
 import pyperclip
 import subprocess
-version="v1.0.2"
+version="v1.0.3"
 
 class ImageViewer(QWidget):
     """メインクラス"""
@@ -97,10 +98,9 @@ class ImageViewer(QWidget):
     def load_images(self):
         """フォルダを選択して画像一覧を表示"""
 
-        f=open('config.dat','r')
-        line=f.readlines()
-
-        folder=QFileDialog.getExistingDirectory(self,"フォルダ選択",line[0])
+        config = load_config()
+        default_folder = config.get('default_folder', os.getcwd())
+        folder = QFileDialog.getExistingDirectory(self, "フォルダ選択", default_folder)
         if not folder:
             return
         
@@ -243,15 +243,17 @@ class ImageViewer(QWidget):
         self.image_label.setPixmap(cropped_pixmap)
 
     def openExcel(self):
-        f=open('config.dat','r')
-        line=f.readlines()
-        subprocess.Popen(line[1])
+        config = load_config()
+        cmd = config.get('custom_command1')
+        if cmd:
+            subprocess.Popen(cmd)
         return False
     
     def share(self):
-        f=open('config.dat','r')
-        line=f.readlines()
-        subprocess.Popen(''+line[2]+"")
+        config = load_config()
+        cmd = config.get('custom_command2')
+        if cmd:
+            subprocess.Popen(cmd)
         return False
 
 def get_exif(file_path):
@@ -301,7 +303,11 @@ def rename_exif(file_path):
         shutter_speed = exif_info.get('ExposureTime')
         f_number = exif_info.get('FNumber')
         iso = exif_info.get('ISOSpeedRatings') or exif_info.get('PhotographicSensitivity')
-        focal_length = exif_info.get('FocalLength')
+        focal_length_actual = exif_info.get('FocalLength') # 実際のレンズ焦点距離
+        focal_length_35mm = exif_info.get('FocalLengthIn35mmFilm') # 35mm換算焦点距離
+        focal_length_multiplier = focal_length_35mm/focal_length_actual if focal_length_actual and focal_length_35mm else None # 焦点距離倍率
+        is_apsc = focal_length_multiplier and focal_length_multiplier == 1.5     #APSCサイズ
+        is_fullframe = focal_length_multiplier and focal_length_multiplier == 1 #フルサイズ
 
         # シャッタースピードの整形
         if isinstance(shutter_speed, Fraction):
@@ -319,7 +325,12 @@ def rename_exif(file_path):
         iso_str = f" ISO{iso}" if iso else ""
 
         # 焦点距離の整形
-        focal_length_str = f" {int(focal_length)}mm" if focal_length else ""
+        if is_apsc:
+            focal_length_str = f" {int(focal_length_actual)}mm(35:{int(focal_length_35mm)})" if focal_length_actual else ""
+        elif is_fullframe:
+            focal_length_str = f" {int(focal_length_actual)}mm(f)" if focal_length_actual else ""
+        else:
+            focal_length_str = f" {int(focal_length_actual)}mm(35:{int(focal_length_35mm)} mul:{focal_length_multiplier} apsc:{is_apsc} full:{is_fullframe})" if focal_length_actual else ""
 
         # 新しいファイル名を作成
         new_name = os.path.splitext(file_path)[0]
@@ -358,6 +369,21 @@ def replace_invalid_chars(filename: str) -> str:
         filename = filename.replace(char, replacement)
     
     return filename
+
+
+def load_config() -> dict:
+    """`config.yaml` を読み込み、辞書を返す。存在しないか読み込み失敗なら空辞書を返す。"""
+    config_path = 'config.yaml'
+    if not os.path.exists(config_path):
+        return {}
+    try:
+        with open(config_path, 'r', encoding='utf-8') as f:
+            data = yaml.safe_load(f) or {}
+            if isinstance(data, dict):
+                return data
+            return {}
+    except Exception:
+        return {}
 
 class ModifiedTextEdit(QTextEdit):
     def func_rename(self):return False
