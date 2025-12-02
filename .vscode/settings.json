@@ -3,8 +3,10 @@
         "apsc",
         "fullframe",
         "kfra",
+        "levelname",
         "pipdeptree",
         "pixture",
-        "pyperclip"
+        "pyperclip",
+        "VIPRE"
     ]
 }
