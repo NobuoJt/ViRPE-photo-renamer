@@ -5,19 +5,30 @@ from PIL import Image
 import piexif
 import yaml
 import logging
+import ctypes
 from PyQt6.QtWidgets import QApplication, QLabel, QListWidget, QVBoxLayout, QWidget, QFileDialog, QPushButton, QGridLayout, QHBoxLayout, QTextEdit, QScrollArea, QComboBox
-from PyQt6.QtGui import QPixmap, QMouseEvent, QKeyEvent
+from PyQt6.QtGui import QPixmap, QMouseEvent, QKeyEvent, QIcon
 from PyQt6.QtCore import Qt, QEvent, QSize
 from datetime import datetime
 from fractions import Fraction
 import pyperclip
 import subprocess
-version="v1.0.5"
+version="v1.0.6"
 
 # logging
 LOG_LEVEL = logging.DEBUG if os.environ.get('VIPRE_DEBUG') == '1' else logging.INFO
 logging.basicConfig(level=LOG_LEVEL, format='%(asctime)s %(levelname)s %(message)s')
 logger = logging.getLogger(__name__)
+
+# On Windows, setting an explicit AppUserModelID helps Windows associate
+# the running GUI windows with the executable's icon (taskbar/pin behavior).
+def _maybe_set_app_user_model_id(app_id: str = "NobuoJt.ViRPE"):
+    if os.name != 'nt':
+        return
+    try:
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(app_id)
+    except Exception:
+        pass
 
 class ImageViewer(QWidget):
     """メインクラス"""
@@ -32,6 +43,18 @@ class ImageViewer(QWidget):
 
         #ウィンドウ設定
         self.setWindowTitle(self.name)
+        # ウィンドウアイコンを設定（リポジトリルートにある ViRPE.ico を優先）
+        try:
+            icon_path = os.path.join(os.path.dirname(__file__), 'ViRPE.ico')
+            if os.path.exists(icon_path):
+                icon = QIcon(icon_path)
+                self.setWindowIcon(icon)
+                try:
+                    QApplication.setWindowIcon(icon)
+                except Exception:
+                    pass
+        except Exception:
+            pass
         self.setGeometry(100,100,600,400)
 
         #レイアウト
@@ -664,6 +687,11 @@ class ModifiedTextEdit(QTextEdit):
             super().keyPressEvent(event)  # 通常の動作
 
 if __name__=="__main__":
+    # On Windows, set AppUserModelID before creating the QApplication
+    try:
+        _maybe_set_app_user_model_id()
+    except Exception:
+        pass
 
     app= QApplication(sys.argv)
     viewer = ImageViewer()
