@@ -4,9 +4,12 @@
         "fullframe",
         "kfra",
         "levelname",
+        "onefile",
         "pipdeptree",
         "pixture",
         "pyperclip",
         "VIPRE"
-    ]
+    ],
+    "python-envs.pythonProjects": [],
+    "python-envs.defaultEnvManager": "ms-python.python:system"
 }

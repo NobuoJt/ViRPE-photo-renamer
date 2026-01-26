@@ -13,9 +13,9 @@ pythonほとんど使ってないのでChat GPTくんに助けを借りてGUIツ
 
 |上部ボタン||
 |-|-|
-|フォルダ選択| ```./config.dat``` の1行目を基準にフォルダ選択のウィンドウが出る。|
-|リネーム(from textbox)|上部テキストボックスのとおりに選択ファイル名が改名。(拡張子含まず)|
-|リネーム(add EXIF)|シャッタースピード、F値、iso、焦点距離を選択ファイル名に追加。|
+|フォルダ選択|```./config.dat``` の1行目を基準にフォルダ選択のウィンドウが出る。|
+|リネーム(Textbox)|上部テキストボックスのとおりに選択ファイル名が改名。(拡張子含まず)|
+|リネーム(EXIF+自動調整)|シャッタースピード、F値、iso、焦点距離を選択ファイル名に追加。|
 |copyToClip(EXIF)|選択ファイルのEXIF情報を上部テキストボックスに表示、クリップボードにコピー。|
 |excel|外部コマンド1。```./config.dat```の2行目で指定。|
 |share folder|外部コマンド2。```./config.dat```の3行目で指定。|
@@ -27,11 +27,27 @@ pythonほとんど使ってないのでChat GPTくんに助けを借りてGUIツ
 |画像ファイルリスト|画像の選択|
 |画像表示エリア|マウス左クリックで全体の2倍で表示。右クリックで1倍。|
 
-### Download
+## Download
 
 [ここ](https://github.com/NobuoJt/ViRPE-photo-renamer/releases/tag/1.0.4)からwindowsでの実行ファイルをダウンロード可能。  
 Windows Defenderに怒られながら産んだのであまりおすすめはしない。
 
-### Memo
+## Setup(Development Environment)
+
+Python3.10以上が必要。
+
+```powershell
+./venv/activate.ps1
+
+pip install -r requirements.txt
+```
+
+## Build to exe
+
+```powershell
+build.ps1 -onefile -outdir ./dist -icon ./icon.ico
+```
+
+## Memo
 
 ```./HelloWorld.py```の5行目は優秀な助手:Chat GPTのリンク

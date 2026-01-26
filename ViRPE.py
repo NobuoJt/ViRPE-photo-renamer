@@ -1,22 +1,34 @@
 import sys
 import os
 import re
+import argparse
 from PIL import Image
 import piexif
 import yaml
 import logging
 import ctypes
-from PyQt6.QtWidgets import QApplication, QLabel, QListWidget, QVBoxLayout, QWidget, QFileDialog, QPushButton, QGridLayout, QHBoxLayout, QTextEdit, QScrollArea, QComboBox
+from PyQt6.QtWidgets import QApplication, QLabel, QListWidget, QVBoxLayout, QWidget, QFileDialog, QPushButton, QGridLayout, QHBoxLayout, QTextEdit, QScrollArea, QComboBox, QMessageBox
 from PyQt6.QtGui import QPixmap, QMouseEvent, QKeyEvent, QIcon
 from PyQt6.QtCore import Qt, QEvent, QSize
 from datetime import datetime
 from fractions import Fraction
 import pyperclip
 import subprocess
-version="v1.0.6"
+version="v1.0.7"
+
+# ログレベルをコマンドライン引数で決定（互換性のため従来の環境変数もフォールバックで利用）
+def _get_log_level_from_args():
+    # 標準のヘルプ（-h/--help）を有効にする
+    parser = argparse.ArgumentParser(description='ViRPE: image renamer GUI (headless options)')
+    parser.add_argument('--log-level', '-l', choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'], help='Set the logging level')
+    args, _ = parser.parse_known_args()
+    if args.log_level:
+        return getattr(logging, args.log_level.upper(), logging.INFO)
+    # 従来互換: 環境変数 VIPRE_DEBUG が '1' の場合は DEBUG
+    return logging.DEBUG if os.environ.get('VIPRE_DEBUG') == '1' else logging.INFO
 
 # logging
-LOG_LEVEL = logging.DEBUG if os.environ.get('VIPRE_DEBUG') == '1' else logging.INFO
+LOG_LEVEL = _get_log_level_from_args()
 logging.basicConfig(level=LOG_LEVEL, format='%(asctime)s %(levelname)s %(message)s')
 logger = logging.getLogger(__name__)
 
@@ -67,36 +79,42 @@ class ImageViewer(QWidget):
         self.btn_open.clicked.connect(self.load_images)
         self.btn_open.setDefault(True)
         self.layout.topButton.addWidget(self.btn_open)
+        self.btn_open.setToolTip("フォルダを選択して画像一覧を読み込みます")
 
         #exifリネームボタン
-        self.btn_rename=QPushButton("リネーム(from textbox)")
+        self.btn_rename=QPushButton("リネーム(Textbox)")
         self.btn_rename.clicked.connect(self.rename_image_3)
         self.btn_rename.setDefault(True)
         self.layout.topButton.addWidget(self.btn_rename)
+        self.btn_rename.setToolTip("テキストボックスの内容で現在の画像をリネームします (Enter)")
 
         #exifリネームボタン
-        self.btn_exif_rename=QPushButton("リネーム(add EXIF)")
+        self.btn_exif_rename=QPushButton("リネーム(EXIF+自動調整)")
         self.btn_exif_rename.clicked.connect(self.rename_image_2)
         self.btn_exif_rename.setDefault(True)
         self.layout.topButton.addWidget(self.btn_exif_rename)
+        self.btn_exif_rename.setToolTip("Exif情報を元にファイル名を自動生成してリネームします。\nフルパス文字数上限(>260)警告や、連続空白文字の削除も行います。 (Shift+Enter)")
 
         #exifクリップボードコピーボタン
         self.btn_exifCopy=QPushButton("copyToClip(EXIF)")
         self.btn_exifCopy.clicked.connect(self.exif_clip_2)
         self.btn_exifCopy.setDefault(True)
         self.layout.topButton.addWidget(self.btn_exifCopy)
+        self.btn_exifCopy.setToolTip("選択中画像のExif情報をクリップボードにコピーします")
 
         #custom_command1起動ボタン
         self.btn_custom_command1=QPushButton(self.custom_command1_name)
         self.btn_custom_command1.clicked.connect(self.custom_command1)
         self.btn_custom_command1.setDefault(True)
         self.layout.topButton.addWidget(self.btn_custom_command1)
+        self.btn_custom_command1.setToolTip("config.yaml の custom_command1 を実行します")
 
         #外部フォルダアクセス用
         self.btn_custom_command2=QPushButton(self.custom_command2_name)
         self.btn_custom_command2.clicked.connect(self.custom_command2)
         self.btn_custom_command2.setDefault(True)
         self.layout.topButton.addWidget(self.btn_custom_command2)
+        self.btn_custom_command2.setToolTip("config.yaml の custom_command2 を実行します")
 
         #入出力テキストボックス
         self.text_widget=ModifiedTextEdit("フォルダを選択してください")
@@ -104,6 +122,7 @@ class ImageViewer(QWidget):
         self.text_widget.func_rename=self.rename_image_3
         self.text_widget.func_rename_exif=self.rename_image_2
         self.layout.addWidget(self.text_widget)
+        self.text_widget.setToolTip("ファイル名を編集して Enter または Shift+Enter でリネームできます")
 
         #画像リスト
         self.list_widget=QListWidget()
@@ -112,6 +131,7 @@ class ImageViewer(QWidget):
         self.list_widget.itemClicked.connect(self.display_image)
         self.list_widget.itemActivated.connect(self.display_image)
         self.layout.addWidget(self.list_widget)
+        self.list_widget.setToolTip("表示中フォルダ内の画像一覧。選択でプレビューを表示します")
 
         # 表示モード選択 (Fit / 100%)
         self.mode_combo = QComboBox()
@@ -119,6 +139,7 @@ class ImageViewer(QWidget):
         self.mode_combo.setCurrentIndex(0)
         self.mode_combo.currentIndexChanged.connect(lambda _: self._update_display_mode())
         self.layout.topButton.addWidget(self.mode_combo)
+        self.mode_combo.setToolTip("表示モードを切り替えます: Fit to Area は自動縮小、Zoom は100%表示でパン/ズーム可能")
 
         # 画像表示領域: QScrollArea + QLabel (パン対応)
         self.scroll_area = QScrollArea()
@@ -182,6 +203,7 @@ class ImageViewer(QWidget):
         # 内部ラベルを作成してスクロールエリアに設定
         self.image_label = PanLabel(scroll_area=self.scroll_area)
         self.image_label.setText("画像表示領域")
+        self.image_label.setToolTip("画像表示エリア。Zoom モードでドラッグしてパン、ホイールで拡大縮小できます")
         # 不要な固定の最大/最小サイズ制約を外して、pixmap に合わせてラベルをリサイズする
         self.image_label.setScaledContents(False)
         self.scroll_area.setWidget(self.image_label)
@@ -548,45 +570,44 @@ class ImageViewer(QWidget):
 
 def get_exif(file_path):
     """Exif情報を取得する関数"""
-    exif_data=None
     try:
-        exif_data=piexif.load(file_path)
-    except Exception as e:
-        if(e):return
-    finally:
-        if not exif_data:return
+        exif_data = piexif.load(file_path)
+    except Exception:
+        return None
 
-        # Exif情報を辞書として登録
-        exif_dict ={}
+    if not exif_data:
+        return None
 
-        # 各IFD（Exif情報のカテゴリ）を走査
-        for ifd_name in exif_data:
-            if isinstance(exif_data[ifd_name], dict):  # items() を使うため辞書かチェック
-                for tag, value in exif_data[ifd_name].items():
-                    tag_name = piexif.TAGS[ifd_name].get(tag, {"name": tag})["name"]
+    # Exif情報を辞書として登録
+    exif_dict = {}
 
-                    # `bytes` 型ならデコード（例: メーカー名など）
-                    if isinstance(value, bytes):
-                        try:
-                            value = value.decode("utf-8",errors="replace").replace('\x00','')
-                        except UnicodeDecodeError:
-                            value = value.hex()  # デコードできなければ16進数に変換
+    # 各IFD（Exif情報のカテゴリ）を走査
+    for ifd_name in exif_data:
+        if isinstance(exif_data[ifd_name], dict):  # items() を使うため辞書かチェック
+            for tag, value in exif_data[ifd_name].items():
+                tag_name = piexif.TAGS[ifd_name].get(tag, {"name": tag})["name"]
 
-                    # `Rational`（分数表記）を処理
-                    if isinstance(value, tuple) and len(value) == 2:
-                        value = Fraction(value[0], value[1])  # 分子/分母 → Fractionに変換
+                # `bytes` 型ならデコード（例: メーカー名など）
+                if isinstance(value, bytes):
+                    try:
+                        value = value.decode("utf-8", errors="replace").replace('\x00', '')
+                    except UnicodeDecodeError:
+                        value = value.hex()  # デコードできなければ16進数に変換
 
-                    exif_dict[tag_name] = value
+                # `Rational`（分数表記）を処理
+                if isinstance(value, tuple) and len(value) == 2:
+                    value = Fraction(value[0], value[1])  # 分子/分母 → Fractionに変換
 
-        return exif_dict
+                exif_dict[tag_name] = value
+
+    return exif_dict
 
 def rename_exif(file_path):
     """Exif情報を使って画像ファイル名をリネームする関数"""
     exif_info = get_exif(file_path)
-
     # Exifの撮影日時を取得
-    datetime_str = exif_info['DateTimeOriginal']
-    match = re.search(r"\d{4}:\d{2}:\d{2} \d{2}:\d{2}:\d{2}", datetime_str)
+    datetime_str = exif_info.get('DateTimeOriginal') if exif_info else None
+    match = re.search(r"\d{4}:\d{2}:\d{2} \d{2}:\d{2}:\d{2}", datetime_str or '')
     if match:
 
         # Exif情報を取得
@@ -622,17 +643,46 @@ def rename_exif(file_path):
         else:
             focal_length_str = f" {int(focal_length_actual)}mm(35:{int(focal_length_35mm)} mul:{focal_length_multiplier} apsc:{is_apsc} full:{is_fullframe})" if focal_length_actual else ""
 
-        # 新しいファイル名を作成
-        new_name = os.path.splitext(file_path)[0]
-        new_name += replace_invalid_chars(f"{shutter_speed_str}{f_number_str}{iso_str}{focal_length_str}")
-        new_name += os.path.splitext(file_path)[1]  # 拡張子を追加
+        # メタ情報文字列を作成して連続する空白を1つにまとめる
+        meta = f"{shutter_speed_str}{f_number_str}{iso_str}{focal_length_str}"
+        meta = re.sub(r"\s+", " ", meta).strip()
+
+        # 新しいベース名とパスを作成
+        orig_base = os.path.splitext(os.path.basename(file_path))[0]
+        ext = os.path.splitext(file_path)[1]
+        new_basename = orig_base + replace_invalid_chars(meta) + ext
+        new_path = os.path.join(os.path.dirname(file_path), new_basename)
+
+        # 連続する空白を1つに置換
+        new_path = re.sub(r"\s+", " ", new_path) 
+
+        # フルパス長が260文字以上の場合は警告ダイアログで確認する
+        try:
+            if len(new_path) >= 260:
+                reply = QMessageBox.warning(None, "パス長警告",
+                                            f"生成されるフルパスが{len(new_path)}文字です。260文字以上になります。続行しますか？",
+                                            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+                if reply != QMessageBox.StandardButton.Yes:
+                    return file_path
+        except Exception:
+            # ダイアログ表示に失敗しても処理を続行できるようにする
+            pass
 
         # ファイルをリネーム
-        new_path = os.path.join(os.path.dirname(file_path), new_name)
         if "ISO" not in os.path.basename(file_path):
-            os.rename(file_path, new_path)
+            try:
+                # Exif追記パターン
+                os.rename(file_path, new_path)
+            except Exception:
+                logger.exception("リネームに失敗しました: %s", file_path)
+                QMessageBox.critical(None, "リネームエラー", f"リネームに失敗しました:\n{file_path}")
+                return file_path
         else:
-            return file_path
+            # Exif既存パターン
+            # 連続する空白を1つに置換
+            new_path = re.sub(r"\s+", " ", file_path) 
+            os.rename(file_path, new_path)
+            return new_path
 
         return new_path
 
