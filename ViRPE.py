@@ -249,7 +249,7 @@ class ImageViewer(QWidget):
         self._is_exif_dump_mode = False
 
         for file in os.listdir(folder):
-            if file.lower().endswith(('.png','.jpg','jpeg','bmp','gif')):
+            if file.lower().endswith(('.png','.jpg','.jpeg','.bmp','.gif')):
                 self.list_widget.addItem(file)
                 self.image_files.append(os.path.join(folder,file))
 
@@ -262,7 +262,7 @@ class ImageViewer(QWidget):
         self.image_files =[]
 
         for file in os.listdir(folder):
-            if file.lower().endswith(('.png','.jpg','jpeg','bmp','gif')):
+            if file.lower().endswith(('.png','.jpg','.jpeg','.bmp','.gif')):
                 self.list_widget.addItem(file)
                 self.image_files.append(os.path.join(folder,file))
 
@@ -272,7 +272,6 @@ class ImageViewer(QWidget):
                 if self.list_widget.item(i).text()==item:
                     self.list_widget.setCurrentItem(self.list_widget.item(i))
                     break
-        from PyQt6.QtWidgets import QApplication, QLabel, QListWidget, QVBoxLayout, QWidget, QFileDialog, QPushButton, QGridLayout, QHBoxLayout, QTextEdit, QScrollArea, QComboBox
         self.text_widget.setText(os.path.splitext(item)[0])
         self._is_exif_dump_mode = False
 
