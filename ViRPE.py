@@ -14,7 +14,7 @@ from datetime import datetime
 from fractions import Fraction
 import pyperclip
 import subprocess
-version="v1.0.7"
+version="v1.0.8"
 
 # ログレベルをコマンドライン引数で決定（互換性のため従来の環境変数もフォールバックで利用）
 def _get_log_level_from_args():
@@ -121,8 +121,12 @@ class ImageViewer(QWidget):
         self.text_widget.setMaximumHeight(45)
         self.text_widget.func_rename=self.rename_image_3
         self.text_widget.func_rename_exif=self.rename_image_2
+        self.text_widget.func_select_prev=self.select_prev_image
+        self.text_widget.func_select_next=self.select_next_image
+        self.text_widget.func_user_edited=self._on_text_user_edited
         self.layout.addWidget(self.text_widget)
         self.text_widget.setToolTip("ファイル名を編集して Enter または Shift+Enter でリネームできます")
+        self._is_exif_dump_mode = False
 
         #画像リスト
         self.list_widget=QListWidget()
@@ -242,6 +246,7 @@ class ImageViewer(QWidget):
         self.list_widget.clear()
         self.image_files =[]
         self.text_widget.setText(self.text_require_sel_pix)
+        self._is_exif_dump_mode = False
 
         for file in os.listdir(folder):
             if file.lower().endswith(('.png','.jpg','jpeg','bmp','gif')):
@@ -269,15 +274,55 @@ class ImageViewer(QWidget):
                     break
         from PyQt6.QtWidgets import QApplication, QLabel, QListWidget, QVBoxLayout, QWidget, QFileDialog, QPushButton, QGridLayout, QHBoxLayout, QTextEdit, QScrollArea, QComboBox
         self.text_widget.setText(os.path.splitext(item)[0])
+        self._is_exif_dump_mode = False
+
+    def _show_rename_error(self, title: str, message: str):
+        logger.exception("%s: %s", title, message)
+        QMessageBox.critical(self, title, message)
+
+    def _on_text_user_edited(self):
+        # Exifダンプ表示中にユーザーが編集したら通常入力モードへ戻す
+        self._is_exif_dump_mode = False
+
+    def _move_list_selection(self, delta: int):
+        if self.list_widget.count() == 0:
+            return
+        row = self.list_widget.currentRow()
+        if row < 0:
+            row = 0 if delta >= 0 else self.list_widget.count() - 1
+        else:
+            row = max(0, min(self.list_widget.count() - 1, row + delta))
+        self.list_widget.setCurrentRow(row)
+        item = self.list_widget.currentItem()
+        if item:
+            self.display_image(item)
+
+    def select_prev_image(self):
+        self._move_list_selection(-1)
+
+    def select_next_image(self):
+        self._move_list_selection(1)
 
     def rename_image_2(self):
+        if getattr(self, '_is_exif_dump_mode', False):
+            QMessageBox.warning(self, "リネーム不可", "Exifダンプ表示中はリネームできません。ファイル名表示に戻してから実行してください。")
+            return False
         if hasattr(self,"image_path") and self.image_path:
-            new_path = rename_exif(self.image_path)
-            self.image_path=new_path
-            self.reload_images(new_path)
+            try:
+                new_path = rename_exif(self.image_path)
+                self.image_path=new_path
+                self.reload_images(new_path)
+                return new_path
+            except Exception as e:
+                self._show_rename_error("リネームエラー", f"Exifリネームに失敗しました:\n{e}")
+                return False
     def rename_image_3(self):
         """テキストボックスの文字列で画像ファイル名をリネームする関数"""
         if hasattr(self,"image_path") and self.image_path:
+            if getattr(self, '_is_exif_dump_mode', False):
+                QMessageBox.warning(self, "リネーム不可", "Exifダンプ表示中はリネームできません。ファイル名表示に戻してから実行してください。")
+                return False
+
             if self.text_require_sel_pix == self.text_widget.toPlainText():
                 return False
 
@@ -288,7 +333,21 @@ class ImageViewer(QWidget):
             # ファイルをリネーム
             if self.text_require_sel_pix not in new_name:
                 new_path = os.path.join(os.path.dirname(self.image_path), replace_invalid_chars(new_name))
-                os.rename(self.image_path, new_path)
+                # Exifリネームと同様に、フルパス長が260文字以上なら確認ダイアログを表示
+                try:
+                    if len(new_path) >= 260:
+                        reply = QMessageBox.warning(self, "パス長警告",
+                                                    f"生成されるフルパスが{len(new_path)}文字です。260文字以上になります。続行しますか？",
+                                                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+                        if reply != QMessageBox.StandardButton.Yes:
+                            return False
+                except Exception:
+                    pass
+                try:
+                    os.rename(self.image_path, new_path)
+                except Exception as e:
+                    self._show_rename_error("リネームエラー", f"テキストリネームに失敗しました:\n{e}")
+                    return False
             self.image_path=new_path
             self.reload_images(new_path)
             return new_path
@@ -307,6 +366,7 @@ class ImageViewer(QWidget):
 
             pyperclip.copy(content)
             self.text_widget.setText(content)
+            self._is_exif_dump_mode = True
 
     def display_image(self,item):
         """選択した画像を表示"""
@@ -365,6 +425,7 @@ class ImageViewer(QWidget):
                 if exif is None:
                     break
                 self.text_widget.setText(self.image_path_simple)
+                self._is_exif_dump_mode = False
                 title_time = exif.get("DateTimeOriginal", "no DateTime")
                 self.setWindowTitle(self.name + " 📂[" + os.path.dirname(self.image_path) + "] ⌚" + title_time)
 
@@ -726,14 +787,38 @@ def load_config() -> dict:
         return {}
 
 class ModifiedTextEdit(QTextEdit):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # 貼り付け時にリッチテキストの見た目が混入しないようプレーンテキストのみ扱う
+        self.setAcceptRichText(False)
+
     def func_rename(self):return False
     def func_rename_exif(self):return False
+    def func_select_prev(self):return False
+    def func_select_next(self):return False
+    def func_user_edited(self):return False
+
+    def insertFromMimeData(self, source):
+        # Ctrl+V でも常にプレーンテキストのみ貼り付ける
+        if source and source.hasText():
+            self.insertPlainText(source.text())
+            self.func_user_edited()
+            return
+        super().insertFromMimeData(source)
+
     def keyPressEvent(self, event: QKeyEvent):
-        if event.key() == Qt.Key.Key_Return and not event.modifiers()==Qt.KeyboardModifier.ShiftModifier:
+        if event.key() == Qt.Key.Key_Up:
+            self.func_select_prev()
+            return
+        elif event.key() == Qt.Key.Key_Down:
+            self.func_select_next()
+            return
+        elif event.key() == Qt.Key.Key_Return and not event.modifiers()==Qt.KeyboardModifier.ShiftModifier:
             self.func_rename()
         elif event.key() == Qt.Key.Key_Return and event.modifiers()==Qt.KeyboardModifier.ShiftModifier :
             self.func_rename_exif()
         else:
+            self.func_user_edited()
             super().keyPressEvent(event)  # 通常の動作
 
 if __name__=="__main__":

@@ -8,8 +8,8 @@ param(
 )
 
 Write-Host "Activating virtual environment (if present)..."
-if (Test-Path .\venv\Scripts\Activate.ps1) {
-    & .\venv\Scripts\Activate.ps1
+if (Test-Path .\.venv\Scripts\Activate.ps1) {
+    & .\.venv\Scripts\Activate.ps1
 } else {
     Write-Host "No venv found at ./venv — continuing with current Python." -ForegroundColor Yellow
 }
