@@ -37,7 +37,7 @@ Windows Defenderに怒られながら産んだのであまりおすすめはし�
 Python3.10以上が必要。
 
 ```powershell
-./venv/activate.ps1
+./.venv/activate.ps1
 
 pip install -r requirements.txt
 ```
