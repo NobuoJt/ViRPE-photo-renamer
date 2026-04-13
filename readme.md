@@ -45,7 +45,7 @@ pip install -r requirements.txt
 ## Build to exe
 
 ```powershell
-build.ps1 -onefile -outdir ./dist -icon ./icon.ico
+build.ps1 -onefile -outdir ./dist -icon ./ViRPE.ico
 ```
 
 ## Memo
