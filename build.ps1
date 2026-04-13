@@ -20,12 +20,12 @@ python -m pip install -r .\requirements.txt
 python -m pip install pyinstaller
 
 Write-Host "Preparing PyInstaller arguments..."
-$args = @()
-if ($OneFile) { $args += '--onefile' } else { $args += '--onedir' }
-if ($NoConsole) { $args += '--noconsole' }
-if ($Icon -and (Test-Path $Icon)) { $args += "--icon=$Icon" } elseif ($Icon) { Write-Host "Icon file not found: $Icon" -ForegroundColor Yellow }
+$args_v = @()
+if ($OneFile) { $args_v += '--onefile' } else { $args_v += '--onedir' }
+if ($NoConsole) { $args_v += '--noconsole' }
+if ($Icon -and (Test-Path $Icon)) { $args_v += "--icon=$Icon" } elseif ($Icon) { Write-Host "Icon file not found: $Icon" -ForegroundColor Yellow }
 
-Write-Host "Running PyInstaller with args: $($args -join ' ')"
-python -m PyInstaller @args ViRPE.py
+Write-Host "Running PyInstaller with args_v: $($args_v -join ' ')"
+python -m PyInstaller @args_v ViRPE.py
 
 Write-Host "Build finished. Check the ./dist folder for output."

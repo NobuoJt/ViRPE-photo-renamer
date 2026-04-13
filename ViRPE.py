@@ -40,7 +40,7 @@ def _maybe_set_app_user_model_id(app_id: str = "NobuoJt.ViRPE"):
     try:
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(app_id)
     except Exception:
-        pass
+        logger.debug("AppUserModelID の設定をスキップしました", exc_info=True)
 
 class ImageViewer(QWidget):
     """メインクラス"""
@@ -64,9 +64,9 @@ class ImageViewer(QWidget):
                 try:
                     QApplication.setWindowIcon(icon)
                 except Exception:
-                    pass
+                    logger.debug("アプリ全体のアイコン設定をスキップしました", exc_info=True)
         except Exception:
-            pass
+            logger.debug("ウィンドウアイコンの設定に失敗しました", exc_info=True)
         self.setGeometry(100,100,600,400)
 
         #レイアウト
@@ -168,6 +168,7 @@ class ImageViewer(QWidget):
                     try:
                         self._last_pos = ev.position()
                     except Exception:
+                        logger.debug("QMouseEvent.position() 取得に失敗したため pos() を使用します", exc_info=True)
                         self._last_pos = ev.pos()
                     self.setCursor(Qt.CursorShape.ClosedHandCursor)
                     logger.debug("PanLabel.mousePressEvent pos=%s", self._last_pos)
@@ -180,6 +181,7 @@ class ImageViewer(QWidget):
                     try:
                         cur = ev.position()
                     except Exception:
+                        logger.debug("QMouseEvent.position() 取得に失敗したため pos() を使用します", exc_info=True)
                         cur = ev.pos()
                     dx = cur.x() - self._last_pos.x()
                     dy = cur.y() - self._last_pos.y()
@@ -341,7 +343,7 @@ class ImageViewer(QWidget):
                         if reply != QMessageBox.StandardButton.Yes:
                             return False
                 except Exception:
-                    pass
+                    logger.warning("パス長警告ダイアログの表示に失敗しましたが、処理を続行します", exc_info=True)
                 try:
                     os.rename(self.image_path, new_path)
                 except Exception as e:
@@ -392,7 +394,7 @@ class ImageViewer(QWidget):
                     try:
                         self.scroll_area.setAlignment(Qt.AlignmentFlag.AlignCenter)
                     except Exception:
-                        pass
+                        logger.debug("スクロール領域の中央揃え設定をスキップしました", exc_info=True)
                     self.scroll_area.setWidgetResizable(False)
                     # Fit モード時はズーム係数を None にする
                     self._zoom = None
@@ -516,6 +518,7 @@ class ImageViewer(QWidget):
                     try:
                         cur_pixmap = self.image_label.pixmap()
                     except Exception:
+                        logger.debug("現在の pixmap 取得に失敗しました", exc_info=True)
                         cur_pixmap = None
                     if cur_pixmap is None:
                         return True
@@ -531,6 +534,7 @@ class ImageViewer(QWidget):
                     try:
                         pos = event.position()
                     except Exception:
+                        logger.debug("QWheelEvent.position() 取得に失敗したため pos() を使用します", exc_info=True)
                         pos = event.pos()
 
                     # ビューポート中心を原点とした signed 座標（ログ用）
@@ -584,7 +588,7 @@ class ImageViewer(QWidget):
                     try:
                         self.mode_combo.setItemText(1, f"Zoom({int(self._zoom*100)}%)")
                     except Exception:
-                        pass
+                        logger.debug("Zoom 表示の更新に失敗しました", exc_info=True)
 
                     logger.debug("eventFilter: wheel zoom old=%.3f new=%.3f rel=(%.3f,%.3f) offset=(%+.1f,%+.1f) img=(%d,%d) -> scroll=(%d,%d)", old_zoom, new_zoom, rel_x, rel_y, offset_x, offset_y, int(img_x), int(img_y), hbar.value(), vbar.value())
                     return True
@@ -612,7 +616,7 @@ class ImageViewer(QWidget):
                 scaled = self._current_pixmap.scaled(vp_size.width(), vp_size.height(), Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
                 self.image_label.setPixmap(scaled)
         except Exception:
-            pass
+            logger.debug("resizeEvent での再スケールに失敗しました", exc_info=True)
 
     def custom_command1(self):
         config = load_config()
@@ -726,7 +730,7 @@ def rename_exif(file_path):
                     return file_path
         except Exception:
             # ダイアログ表示に失敗しても処理を続行できるようにする
-            pass
+            logger.warning("Exif リネーム時のパス長警告ダイアログ表示に失敗しましたが、処理を続行します", exc_info=True)
 
         # ファイルをリネーム
         if "ISO" not in os.path.basename(file_path):
@@ -803,7 +807,10 @@ class ModifiedTextEdit(QTextEdit):
             self.insertPlainText(source.text())
             self.func_user_edited()
             return
-        super().insertFromMimeData(source)
+        try:
+            super().insertFromMimeData(source)
+        except Exception:
+            logger.debug("MimeData からの挿入に失敗しました", exc_info=True)
 
     def keyPressEvent(self, event: QKeyEvent):
         if event.key() == Qt.Key.Key_Up:
@@ -825,7 +832,7 @@ if __name__=="__main__":
     try:
         _maybe_set_app_user_model_id()
     except Exception:
-        pass
+        logger.debug("AppUserModelID 設定処理で例外が発生しました", exc_info=True)
 
     app= QApplication(sys.argv)
     viewer = ImageViewer()
