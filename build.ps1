@@ -26,6 +26,6 @@ if ($NoConsole) { $args_v += '--noconsole' }
 if ($Icon -and (Test-Path $Icon)) { $args_v += "--icon=$Icon" } elseif ($Icon) { Write-Host "Icon file not found: $Icon" -ForegroundColor Yellow }
 
 Write-Host "Running PyInstaller with args_v: $($args_v -join ' ')"
-python -m PyInstaller @args_v ViRPE.py
+python -m PyInstaller @args_v ViRPE.pyw
 
 Write-Host "Build finished. Check the ./dist folder for output."

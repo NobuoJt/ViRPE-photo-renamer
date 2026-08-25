@@ -7,14 +7,38 @@ import piexif
 import yaml
 import logging
 import ctypes
-from PyQt6.QtWidgets import QApplication, QLabel, QListWidget, QVBoxLayout, QWidget, QFileDialog, QPushButton, QGridLayout, QHBoxLayout, QTextEdit, QScrollArea, QComboBox, QMessageBox
-from PyQt6.QtGui import QPixmap, QMouseEvent, QKeyEvent, QIcon, QTextCursor
-from PyQt6.QtCore import Qt, QEvent, QSize
+from PyQt6.QtWidgets import QApplication, QLabel, QListWidget, QVBoxLayout, QWidget, QFileDialog, QPushButton, QGridLayout, QHBoxLayout, QTextEdit, QScrollArea, QComboBox, QMessageBox, QLineEdit, QCheckBox
+from PyQt6.QtGui import QPixmap, QMouseEvent, QKeyEvent, QIcon, QTextCursor, QImage, QImageReader
+from PyQt6.QtCore import Qt, QEvent, QSize, QObject, QRunnable, QThreadPool, QTimer, pyqtSignal
 from datetime import datetime
 from fractions import Fraction
 import pyperclip
 import subprocess
-version="v1.0.8"
+version="v1.1.0"
+
+
+class ThumbnailSignals(QObject):
+    finished = pyqtSignal(str, QImage)
+
+
+class ThumbnailTask(QRunnable):
+    def __init__(self, path, size, signals):
+        super().__init__()
+        self.path = path
+        self.size = size
+        self.signals = signals
+
+    def run(self):
+        reader = QImageReader(self.path)
+        reader.setAutoTransform(True)
+        source_size = reader.size()
+        if source_size.isValid():
+            scale = min(self.size.width() / source_size.width(), self.size.height() / source_size.height())
+            if scale < 1:
+                reader.setScaledSize(QSize(max(1, int(source_size.width() * scale)), max(1, int(source_size.height() * scale))))
+        image = reader.read()
+        if not image.isNull():
+            self.signals.finished.emit(self.path, image)
 
 # ログレベルをコマンドライン引数で決定（互換性のため従来の環境変数もフォールバックで利用）
 def _get_log_level_from_args():
@@ -136,6 +160,39 @@ class ImageViewer(QWidget):
         self.list_widget.itemActivated.connect(self.display_image)
         self.layout.addWidget(self.list_widget)
         self.list_widget.setToolTip("表示中フォルダ内の画像一覧。選択でプレビューを表示します")
+        self._thumbnail_cache = {}
+        self._thumbnail_pending = set()
+        self._thumbnail_signals = ThumbnailSignals()
+        self._thumbnail_signals.finished.connect(self._thumbnail_ready)
+        self._thumbnail_pool = QThreadPool(self)
+        self._thumbnail_pool.setMaxThreadCount(2)
+        self.list_widget.verticalScrollBar().valueChanged.connect(lambda *_: self._load_visible_thumbnails())
+        self.list_widget.horizontalScrollBar().valueChanged.connect(lambda *_: self._load_visible_thumbnails())
+
+        # 一覧の検索・置換・並び順・表示形式
+        self.filter_row = QHBoxLayout()
+        self.search_edit = QLineEdit()
+        self.search_edit.setPlaceholderText("ファイル名を検索")
+        self.search_edit.textChanged.connect(self._filter_images)
+        self.filter_row.addWidget(self.search_edit)
+        self.regex_check = QCheckBox("正規表現")
+        self.regex_check.toggled.connect(self._filter_images)
+        self.filter_row.addWidget(self.regex_check)
+        self.replace_edit = QLineEdit()
+        self.replace_edit.setPlaceholderText("置換後")
+        self.filter_row.addWidget(self.replace_edit)
+        self.btn_replace = QPushButton("名前置換")
+        self.btn_replace.clicked.connect(self.replace_filenames)
+        self.filter_row.addWidget(self.btn_replace)
+        self.sort_combo = QComboBox()
+        self.sort_combo.addItems(["名前順", "撮影時間順"])
+        self.sort_combo.currentIndexChanged.connect(self._sort_images)
+        self.filter_row.addWidget(self.sort_combo)
+        self.list_view_combo = QComboBox()
+        self.list_view_combo.addItems(["名前リスト", "縮小画像タイル"])
+        self.list_view_combo.currentIndexChanged.connect(self._update_list_view)
+        self.filter_row.addWidget(self.list_view_combo)
+        self.layout.insertLayout(self.layout.count() - 1, self.filter_row)
 
         # 表示モード選択 (Fit / 100%)
         self.mode_combo = QComboBox()
@@ -202,13 +259,145 @@ class ImageViewer(QWidget):
 
         self.list_widget.clear()
         self.image_files =[]
+        self._all_image_files = []
         self.text_widget.setText(self.text_require_sel_pix)
         self._is_exif_dump_mode = False
 
         for file in os.listdir(folder):
             if file.lower().endswith(('.png','.jpg','.jpeg','.bmp','.gif')):
-                self.list_widget.addItem(file)
-                self.image_files.append(os.path.join(folder,file))
+                self._all_image_files.append(os.path.join(folder, file))
+        self._sort_images()
+
+    def _sort_images(self, *_):
+        """保持している画像パスを選択したキーで並べ替えて一覧を更新する。"""
+        if not hasattr(self, '_all_image_files'):
+            return
+        if self.sort_combo.currentIndex() == 1:
+            def capture_time(path):
+                exif = get_exif(path) or {}
+                value = exif.get('DateTimeOriginal') or exif.get('DateTime')
+                return value if isinstance(value, str) else '9999:99:99 99:99:99'
+            self._all_image_files.sort(key=lambda path: (capture_time(path), os.path.basename(path).casefold()))
+        else:
+            self._all_image_files.sort(key=lambda path: os.path.basename(path).casefold())
+        self._filter_images()
+
+    def _filter_images(self, *_):
+        """検索条件を一覧へ適用する。正規表現が不正な場合は一致なしにする。"""
+        if not hasattr(self, '_all_image_files'):
+            return
+        pattern = self.search_edit.text()
+        try:
+            matcher = re.compile(pattern, re.IGNORECASE) if self.regex_check.isChecked() else None
+        except re.error:
+            matcher = None
+            pattern = '\\A(?!)'
+
+        def matches(path):
+            name = os.path.basename(path)
+            return bool(matcher.search(name)) if matcher else pattern.casefold() in name.casefold()
+
+        self.image_files = [path for path in self._all_image_files if matches(path)]
+        self.list_widget.clear()
+        for path in self.image_files:
+            self.list_widget.addItem(os.path.basename(path))
+            item = self.list_widget.item(self.list_widget.count() - 1)
+            item.setData(Qt.ItemDataRole.UserRole, path)
+            if self.list_view_combo.currentIndex() == 1:
+                item.setSizeHint(QSize(190, 112))
+        if self.list_view_combo.currentIndex() == 1:
+            QTimer.singleShot(0, self._load_visible_thumbnails)
+
+    def _load_visible_thumbnails(self):
+        """ 可視範囲内のサムネイルをロードする。 """
+        if self.list_view_combo.currentIndex() != 1:
+            """ タイル表示でない場合は何もしない """
+            return
+        viewport_rect = self.list_widget.viewport().rect()
+        thumbnail_size = self.list_widget.iconSize()
+        for index in range(self.list_widget.count()):
+            """ 可視範囲内のアイテムを処理する """
+            item = self.list_widget.item(index)
+            if not self.list_widget.visualItemRect(item).intersects(viewport_rect):
+                continue
+            path = item.data(Qt.ItemDataRole.UserRole)
+            if not path:
+                continue
+            cached = self._thumbnail_cache.get(path)
+            if cached is not None:
+                item.setIcon(cached)
+                continue
+            if path in self._thumbnail_pending:
+                continue
+            self._thumbnail_pending.add(path)
+            self._thumbnail_pool.start(ThumbnailTask(path, thumbnail_size, self._thumbnail_signals))
+
+    def _thumbnail_ready(self, path, image):
+        self._thumbnail_pending.discard(path)
+        icon = QIcon(QPixmap.fromImage(image))
+        self._thumbnail_cache[path] = icon
+        for index in range(self.list_widget.count()):
+            item = self.list_widget.item(index)
+            if item.data(Qt.ItemDataRole.UserRole) == path:
+                item.setIcon(icon)
+                break
+
+    def _update_list_view(self):
+        tile_mode = self.list_view_combo.currentIndex() == 1
+        self.list_widget.setViewMode(QListWidget.ViewMode.IconMode if tile_mode else QListWidget.ViewMode.ListMode)
+        self.list_widget.setIconSize(QSize(120, 80) if tile_mode else QSize(1, 1))
+        self.list_widget.setResizeMode(QListWidget.ResizeMode.Adjust)
+        self.list_widget.setSpacing(6)
+        self.list_widget.setUniformItemSizes(tile_mode)
+        self.list_widget.setTextElideMode(Qt.TextElideMode.ElideRight)
+        self.list_widget.setWordWrap(False)
+        self.list_widget.setGridSize(QSize(190, 112) if tile_mode else QSize(16,16))
+        self._filter_images()
+
+    def replace_filenames(self):
+        """検索条件に一致するファイル名を一括置換する。"""
+        if not hasattr(self, '_all_image_files') or not self._all_image_files:
+            return
+        search = self.search_edit.text()
+        replacement = self.replace_edit.text()
+        if not search:
+            QMessageBox.warning(self, "置換", "検索文字列を入力してください。")
+            return
+        try:
+            if self.regex_check.isChecked():
+                re.compile(search)
+        except re.error as error:
+            QMessageBox.warning(self, "置換", f"正規表現が不正です:\n{error}")
+            return
+        targets = [path for path in self._all_image_files if path in self.image_files]
+        if not targets:
+            return
+        if self.regex_check.isChecked():
+            make_name = lambda name: re.sub(search, replacement, name)
+        else:
+            make_name = lambda name: name.replace(search, replacement)
+        changes = []
+        for old_path in targets:
+            old_name = os.path.basename(old_path)
+            new_name = make_name(old_name)
+            if new_name != old_name:
+                changes.append((old_path, os.path.join(os.path.dirname(old_path), replace_invalid_chars(new_name))))
+        if not changes:
+            return
+        reply = QMessageBox.question(self, "名前置換", f"{len(changes)} 件のファイル名を置換しますか？")
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+        for old_path, new_path in changes:
+            try:
+                os.rename(old_path, new_path)
+            except OSError as error:
+                logger.warning("ファイル名置換をスキップしました: %s (%s)", old_path, error)
+        self._all_image_files = []
+        folder = os.path.dirname(targets[0])
+        for name in os.listdir(folder):
+            if name.lower().endswith(('.png','.jpg','.jpeg','.bmp','.gif')):
+                self._all_image_files.append(os.path.join(folder, name))
+        self._sort_images()
 
     def reload_images(self,item):
         """画像一覧をリロード"""
@@ -217,14 +406,15 @@ class ImageViewer(QWidget):
         folder=os.path.dirname(self.image_path)
         self.list_widget.clear()
         self.image_files =[]
+        self._all_image_files = []
 
         for file in os.listdir(folder):
             if file.lower().endswith(('.png','.jpg','.jpeg','.bmp','.gif')):
-                self.list_widget.addItem(file)
-                self.image_files.append(os.path.join(folder,file))
+                self._all_image_files.append(os.path.join(folder, file))
 
+        item = os.path.basename(item) if item else ''
         if item:
-            item=os.path.basename(item)
+            self._sort_images()
             for i in range(self.list_widget.count()):
                 if self.list_widget.item(i).text()==item:
                     self.list_widget.setCurrentItem(self.list_widget.item(i))
