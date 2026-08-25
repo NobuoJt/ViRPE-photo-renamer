@@ -8,7 +8,7 @@ import yaml
 import logging
 import ctypes
 from PyQt6.QtWidgets import QApplication, QLabel, QListWidget, QVBoxLayout, QWidget, QFileDialog, QPushButton, QGridLayout, QHBoxLayout, QTextEdit, QScrollArea, QComboBox, QMessageBox
-from PyQt6.QtGui import QPixmap, QMouseEvent, QKeyEvent, QIcon
+from PyQt6.QtGui import QPixmap, QMouseEvent, QKeyEvent, QIcon, QTextCursor
 from PyQt6.QtCore import Qt, QEvent, QSize
 from datetime import datetime
 from fractions import Fraction
@@ -161,51 +161,6 @@ class ImageViewer(QWidget):
                 self.setMouseTracking(True)
                 self.setCursor(Qt.CursorShape.OpenHandCursor)
 
-            def mousePressEvent(self, ev: QMouseEvent):
-                if ev.button() == Qt.MouseButton.LeftButton:
-                    self._dragging = True
-                    # use local position to compute deltas
-                    try:
-                        self._last_pos = ev.position()
-                    except Exception:
-                        logger.debug("QMouseEvent.position() 取得に失敗したため pos() を使用します", exc_info=True)
-                        self._last_pos = ev.pos()
-                    self.setCursor(Qt.CursorShape.ClosedHandCursor)
-                    logger.debug("PanLabel.mousePressEvent pos=%s", self._last_pos)
-                    ev.accept()
-                else:
-                    super().mousePressEvent(ev)
-
-            def mouseMoveEvent(self, ev: QMouseEvent):
-                if self._dragging and self._last_pos is not None and self._scroll_area:
-                    try:
-                        cur = ev.position()
-                    except Exception:
-                        logger.debug("QMouseEvent.position() 取得に失敗したため pos() を使用します", exc_info=True)
-                        cur = ev.pos()
-                    dx = cur.x() - self._last_pos.x()
-                    dy = cur.y() - self._last_pos.y()
-                    hbar = self._scroll_area.horizontalScrollBar()
-                    vbar = self._scroll_area.verticalScrollBar()
-                    # subtract dx/dy to move content with mouse drag direction
-                    hbar.setValue(int(hbar.value() - dx))
-                    vbar.setValue(int(vbar.value() - dy))
-                    logger.debug("PanLabel.mouseMoveEvent dx=%.1f dy=%.1f h=%d v=%d", dx, dy, hbar.value(), vbar.value())
-                    self._last_pos = cur
-                    ev.accept()
-                else:
-                    super().mouseMoveEvent(ev)
-
-            def mouseReleaseEvent(self, ev: QMouseEvent):
-                if ev.button() == Qt.MouseButton.LeftButton:
-                    self._dragging = False
-                    self._last_pos = None
-                    self.setCursor(Qt.CursorShape.OpenHandCursor)
-                    logger.debug("PanLabel.mouseReleaseEvent")
-                    ev.accept()
-                else:
-                    super().mouseReleaseEvent(ev)
-
         # 内部ラベルを作成してスクロールエリアに設定
         self.image_label = PanLabel(scroll_area=self.scroll_area)
         self.image_label.setText("画像表示領域")
@@ -275,6 +230,7 @@ class ImageViewer(QWidget):
                     self.list_widget.setCurrentItem(self.list_widget.item(i))
                     break
         self.text_widget.setText(os.path.splitext(item)[0])
+        self.text_widget.moveCursor(QTextCursor.MoveOperation.End)
         self._is_exif_dump_mode = False
 
     def _show_rename_error(self, title: str, message: str):
@@ -426,6 +382,7 @@ class ImageViewer(QWidget):
                 if exif is None:
                     break
                 self.text_widget.setText(self.image_path_simple)
+                self.text_widget.moveCursor(QTextCursor.MoveOperation.End)
                 self._is_exif_dump_mode = False
                 title_time = exif.get("DateTimeOriginal", "no DateTime")
                 self.setWindowTitle(self.name + " 📂[" + os.path.dirname(self.image_path) + "] ⌚" + title_time)
@@ -459,20 +416,18 @@ class ImageViewer(QWidget):
             is_label = False
 
         if is_viewport or is_label:
+            if event.type() == QEvent.Type.MouseButtonPress and event.button() == Qt.MouseButton.MiddleButton:
+                self.mode_combo.setCurrentIndex(0 if self.mode_combo.currentIndex() == 1 else 1)
+                return True
+
             if event.type() == QEvent.Type.MouseButtonPress and event.button() == Qt.MouseButton.LeftButton:
-                try:
-                    self._pan_last_pos = event.position()
-                except Exception:
-                    self._pan_last_pos = event.pos()
+                self._pan_last_pos = self.scroll_area.viewport().mapFromGlobal(event.globalPosition().toPoint())
                 self._panning = True
                 logger.debug("eventFilter: start panning at %s (source=%s)", self._pan_last_pos, 'label' if is_label else 'viewport')
                 return True
 
             if event.type() == QEvent.Type.MouseMove and self._panning and self._pan_last_pos is not None:
-                try:
-                    cur = event.position()
-                except Exception:
-                    cur = event.pos()
+                cur = self.scroll_area.viewport().mapFromGlobal(event.globalPosition().toPoint())
                 dx = cur.x() - self._pan_last_pos.x()
                 dy = cur.y() - self._pan_last_pos.y()
                 hbar = self.scroll_area.horizontalScrollBar()
@@ -532,10 +487,10 @@ class ImageViewer(QWidget):
 
                     # ホイールズームの基準はマウスポインタ位置（ビューポート座標）に戻す
                     try:
-                        pos = event.position()
+                        pos = self.scroll_area.viewport().mapFromGlobal(event.globalPosition().toPoint())
                     except Exception:
-                        logger.debug("QWheelEvent.position() 取得に失敗したため pos() を使用します", exc_info=True)
-                        pos = event.pos()
+                        logger.debug("ホイール位置の取得に失敗しました", exc_info=True)
+                        return True
 
                     # ビューポート中心を原点とした signed 座標（ログ用）
                     vp = self.scroll_area.viewport()
@@ -547,8 +502,9 @@ class ImageViewer(QWidget):
                     # 現在ポインタが指している画像内のピクセル座標
                     hbar = self.scroll_area.horizontalScrollBar()
                     vbar = self.scroll_area.verticalScrollBar()
-                    img_x = hbar.value() + pos.x()
-                    img_y = vbar.value() + pos.y()
+                    label_pos = self.image_label.mapFromGlobal(event.globalPosition().toPoint())
+                    img_x = label_pos.x()
+                    img_y = label_pos.y()
 
                     # 画像上の比率（現在表示されている画像サイズを基準に）
                     cur_pixmap = self.image_label.pixmap()
@@ -559,8 +515,8 @@ class ImageViewer(QWidget):
                     if cur_w == 0 or cur_h == 0:
                         return True
 
-                    rel_x = img_x / cur_w
-                    rel_y = img_y / cur_h
+                    rel_x = max(0.0, min(1.0, img_x / cur_w))
+                    rel_y = max(0.0, min(1.0, img_y / cur_h))
 
                     # 新しい表示サイズ
                     orig_w = self._current_pixmap.width()
