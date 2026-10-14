@@ -14,7 +14,7 @@ from datetime import datetime
 from fractions import Fraction
 import pyperclip
 import subprocess
-version="v1.1.0"
+version="v1.1.1"
 
 
 class ThumbnailSignals(QObject):

@@ -48,7 +48,9 @@ pip install -r requirements.txt
 ## Build to exe
 
 ```powershell
-build.ps1 -onefile -outdir ./dist -icon ./ViRPE.ico
+python -m nuitka --standalone --windows-console-mode=disable --include-windows-runtime-dlls=no --enable-plugin=pyqt6 ViRPE.pyw
+
+ --jobs= を調整
 ```
 
 ## Memo

@@ -6,3 +6,5 @@ build/*
 /config.dat
 share.lnk
 HelloWorld.py
+/ViRPE.build
+/ViRPE.dist
